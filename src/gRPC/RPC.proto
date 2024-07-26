@@ -1,0 +1,62 @@
+syntax = "proto3";
+
+option go_package = "../myRPC";
+package myRPC;
+
+enum Gamemode{
+  ANY = 0;
+  COOPERATION = 1;
+}
+
+message GameRoomFindInfo {//用于寻找房间的玩家信息
+  string Username = 1;
+  Gamemode GameMode = 2;
+  bool MustCreate = 3;
+}
+
+message RoomInfo{//查找到的房间信息
+  bool IsFind = 1;//是否找到房间
+  string RoomId = 2;
+  string RoomAddr = 3;//room的地址，不是roomsServer的地址
+  bytes Token = 4;
+}
+
+
+message RoomInfoNode{
+  string RoomId = 1;
+  int64  PlayerNum = 2;
+}
+
+message RoomInfoArray{
+  repeated RoomInfoNode rooms =1;
+}
+
+message Res{
+  Code code = 1;
+}
+
+enum Code{
+  SUCCESS = 0;
+}
+
+message RoomServerInfo{//roomServer向rCenter汇报的服务器信息
+  string Addr = 1;
+  int64 PlayerNum = 2;//当前服务器在线玩家
+  int64 RoomNum = 3;//当前服务器正在进行的对局
+}
+
+message Empty{
+
+}
+
+
+service rCenterRPC {
+  rpc CreateRoom(GameRoomFindInfo) returns (RoomInfo);//logic寻找合适的roomsever调用房间创建的信息
+  rpc RoomServerHeart(RoomServerInfo) returns (Res);//roomServer向rc保活
+}
+
+
+service roomRPC{
+  rpc CreateRoom(GameRoomFindInfo) returns(RoomInfo);//根据用户信息返回创建房间并返房间信息
+  rpc GetRoomList(Empty) returns(RoomInfoArray);//获取房间列表
+}
