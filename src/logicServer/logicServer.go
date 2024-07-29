@@ -8,10 +8,8 @@ import (
 	"myGameDemo/logicServer/msg"
 	"myGameDemo/logicServer/userConsole"
 	"myGameDemo/myRPC"
-	"net"
 	"net/http"
 	"strconv"
-	"sync"
 )
 
 var ID string
@@ -124,6 +122,30 @@ func heart(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
+func createRoom(w http.ResponseWriter, r *http.Request) {
+	var session userConsole.SessionInfo
+	if err := json.NewDecoder(r.Body).Decode(&session); err != nil {
+		log.Fatal(err)
+		return
+	}
+	check, err := userConsole.GetUserConsole().SessionCheck(session)
+	if err != nil {
+		return
+	}
+	if check.Code != msg.SUCCESS {
+		msg.Send(&w, &msg.Res{Code: msg.OUTTIMESESSION, Msg: "会话过期"})
+		return
+	}
+	username := check.Msg
+	a, _ := GetRcClient().CreateRoom(context.Background(), &myRPC.GameRoomFindInfo{
+		Username:   username,
+		GameMode:   myRPC.Gamemode_COOPERATION,
+		MustCreate: true,
+	})
+	fmt.Println(a)
+	msg.Send(&w, &msg.Res{Code: msg.SUCCESS, Data: a})
+}
+
 //func matchingRoom(w http.ResponseWriter, r *http.Request) {
 //	var session userConsole.SessionInfo
 //	if err := json.NewDecoder(r.Body).Decode(&session); err != nil {
@@ -151,26 +173,20 @@ func (N *LogicServer) Run() {
 	ID = N.Addr
 	portMid, _ := strconv.Atoi(ID[1:])
 	RPCAddr = ":" + strconv.Itoa(portMid+111)
-	//TODO Test 房间创建
+
 	a, _ := GetRcClient().CreateRoom(context.Background(), &myRPC.GameRoomFindInfo{
-		Username:   "123",
+		Username:   "1",
 		GameMode:   myRPC.Gamemode_COOPERATION,
 		MustCreate: true,
 	})
 	fmt.Println(a)
-	conn, err := net.Dial("tcp", a.RoomAddr)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	conn.Write([]byte("123"))
-	//TODO End
-	var wg sync.WaitGroup
-	//wg.Add(1)
-	//go func() {
-	//	defer wg.Done()
-	//	GetLogicRPC().server(RPCAddr)
-	//}()
+
+	b, _ := GetRcClient().CreateRoom(context.Background(), &myRPC.GameRoomFindInfo{
+		Username:   "12",
+		GameMode:   myRPC.Gamemode_COOPERATION,
+		MustCreate: true,
+	})
+	fmt.Println(b)
 
 	http.HandleFunc("/register", register)
 	http.HandleFunc("/login", login)
@@ -178,10 +194,11 @@ func (N *LogicServer) Run() {
 	http.HandleFunc("/getUsersList", getUsersList)
 	http.HandleFunc("/ID", serverID)
 	http.HandleFunc("/heart", heart)
+	http.HandleFunc("/createRoom", createRoom)
+
 	//http.HandleFunc("/MatchingRoom", matchingRoom)
 
 	if err := http.ListenAndServe(N.Addr, nil); err != nil {
 		panic(err)
 	}
-	wg.Wait()
 }

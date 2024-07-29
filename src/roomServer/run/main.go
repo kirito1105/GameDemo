@@ -2,10 +2,26 @@ package main
 
 import "myGameDemo/roomServer"
 
+type Info struct {
+	data2 int32
+	data  int64
+}
+type SimulatedSlice struct {
+	array uintptr
+	len   int
+	cap   int
+}
+
 func main() {
-	//a := roomServer.Communication{}
-	//t := a.Listen()
-	//fmt.Println(t)
-	//time.Sleep(time.Hour)
-	roomServer.Run("localhost", 2605)
+	//a := Info{1, 2}
+	//Len := unsafe.Sizeof(a)
+	//simSlice := &SimulatedSlice{
+	//	array: uintptr(unsafe.Pointer(&a)),
+	//	cap:   int(Len),
+	//	len:   int(Len),
+	//}
+	//data := *(*[]byte)(unsafe.Pointer(simSlice))
+	//fmt.Println(data)
+	roomServer.GetRoomServer().Run("localhost", 1324)
+
 }

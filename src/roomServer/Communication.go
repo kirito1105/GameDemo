@@ -1,21 +1,30 @@
 package roomServer
 
 import (
+	"bufio"
+	"fmt"
 	"net"
 )
 
 type message struct{}
 
+type header struct {
+	len int
+}
+
 type roomRunable interface {
 }
 
 type Communication struct {
+	room   roomRunable
 	udpCli *net.UDPConn
 	tcpCli *net.TCPListener
 }
 
-func NewCommunication() *Communication {
-	return &Communication{}
+func NewCommunication(room roomRunable) *Communication {
+	return &Communication{
+		room: room,
+	}
 }
 
 func (c *Communication) Listen() string {
@@ -44,7 +53,18 @@ func (c *Communication) Listen() string {
 // 阻塞
 func (c *Communication) process(conn net.Conn) {
 	defer conn.Close()
-
+	for {
+		reader := bufio.NewReader(conn)
+		var buf [128]byte
+		n, err := reader.Read(buf[:]) // 读取数据
+		if err != nil {
+			fmt.Println("read from testClient failed, err:", err)
+			break
+		}
+		recvStr := string(buf[:n])
+		fmt.Println("收到client端发来的数据：", recvStr)
+		conn.Write([]byte(recvStr)) // 发送数据
+	}
 }
 
 func (c *Communication) Serve() { //监听端口

@@ -18,7 +18,7 @@ import (
 // Requires gRPC-Go v1.32.0 or later.
 const _ = grpc.SupportPackageIsVersion7
 
-// RCenterRPCClient is the client API for RCenterRPC service.
+// RCenterRPCClient is the testClient API for RCenterRPC service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type RCenterRPCClient interface {
@@ -140,7 +140,7 @@ var RCenterRPC_ServiceDesc = grpc.ServiceDesc{
 	Metadata: "RPC.proto",
 }
 
-// RoomRPCClient is the client API for RoomRPC service.
+// RoomRPCClient is the testClient API for RoomRPC service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type RoomRPCClient interface {

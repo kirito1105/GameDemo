@@ -16,46 +16,25 @@ type RServer struct {
 	*myRPC.UnimplementedRoomRPCServer
 }
 
-func RoomStart() *myRPC.RoomInfo {
-	addr, _ := net.ResolveTCPAddr("tcp", "127.0.0.1:0")
-	cli, _ := net.ListenTCP("tcp", addr)
-	//TODO room信息处理
+func RoomCreate() *myRPC.RoomInfo {
+	theRoom := NewRoom()
+	theRoom.Start()
 	roomId := strconv.Itoa(int(time.Now().Unix()))
-	GetRoomController().AddRoom(Room{
-		Addr:          cli.Addr().String(),
-		OnlinePlayers: make([]player, 0),
-	}, roomId)
+	theRoom.RoomID = roomId
 
+	GetRoomController().AddRoom(theRoom, roomId)
 	roominfo := &myRPC.RoomInfo{
 		IsFind:   true,
 		RoomId:   roomId,
-		RoomAddr: cli.Addr().String(),
+		RoomAddr: theRoom.GetTCPAddr().String(),
 	}
-	//TODO 抽象房间为类
-	go func() {
-		for {
-			//TODO 房间运行
-			id := roomId
-			conn, err := cli.Accept()
-			if err != nil {
-				//TODO TCP出错
-				return
-			}
-			//TODO 处理玩家信息
-			//Todo 获取玩家ID
-			username := "123"
-			GetRoomController().PlayerOnline(player{username: username}, id)
-			//TODO 将与玩家的连接加入连接总表
-			fmt.Println(conn)
-		}
 
-	}()
 	fmt.Println(GetRoomController().Summary())
 	return roominfo
 }
 
 func (R RServer) CreateRoom(ctx context.Context, info *myRPC.GameRoomFindInfo) (*myRPC.RoomInfo, error) {
-	roominfo := RoomStart()
+	roominfo := RoomCreate()
 	return roominfo, nil
 }
 
@@ -95,6 +74,7 @@ func (p *RPCRoom) run() {
 
 	grpcServer.Serve(lis)
 }
+
 func (p *RPCRoom) server() {
 	p.run()
 }
