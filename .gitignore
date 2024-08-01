@@ -3,6 +3,7 @@ test*
 *.private.pem
 *.public.pem
 
+*.png
 
 tmp
 .env

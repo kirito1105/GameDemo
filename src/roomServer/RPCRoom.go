@@ -19,7 +19,7 @@ type RServer struct {
 func RoomCreate() *myRPC.RoomInfo {
 	theRoom := NewRoom()
 	theRoom.Start()
-	roomId := strconv.Itoa(int(time.Now().Unix()))
+	roomId := strconv.Itoa(int(time.Now().UnixNano()))
 	theRoom.RoomID = roomId
 
 	GetRoomController().AddRoom(theRoom, roomId)

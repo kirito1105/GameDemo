@@ -174,20 +174,6 @@ func (N *LogicServer) Run() {
 	portMid, _ := strconv.Atoi(ID[1:])
 	RPCAddr = ":" + strconv.Itoa(portMid+111)
 
-	a, _ := GetRcClient().CreateRoom(context.Background(), &myRPC.GameRoomFindInfo{
-		Username:   "1",
-		GameMode:   myRPC.Gamemode_COOPERATION,
-		MustCreate: true,
-	})
-	fmt.Println(a)
-
-	b, _ := GetRcClient().CreateRoom(context.Background(), &myRPC.GameRoomFindInfo{
-		Username:   "12",
-		GameMode:   myRPC.Gamemode_COOPERATION,
-		MustCreate: true,
-	})
-	fmt.Println(b)
-
 	http.HandleFunc("/register", register)
 	http.HandleFunc("/login", login)
 	http.HandleFunc("/getOnlineUser", getOnlineUser)

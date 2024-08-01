@@ -6,20 +6,19 @@ import (
 	"net"
 )
 
-type playerTask struct {
+type PlayerTask struct {
 	tcpTask *mynet.TCPTask
 	inRoom  *Room
 }
 
-func (p *playerTask) ParseMsg(data []byte) bool {
+func (p *PlayerTask) ParseMsg(data []byte) bool {
 	fmt.Println("receive msg:", string(data))
 	//TODO implement
-	p.tcpTask.SendMsg([]byte("res TEST"))
 	return true
 }
 
-func NewPlayerTask(conn *net.TCPConn, r *Room) *playerTask {
-	t := &playerTask{
+func NewPlayerTask(conn *net.TCPConn, r *Room) *PlayerTask {
+	t := &PlayerTask{
 		tcpTask: mynet.NewTCPTask(conn),
 		inRoom:  r,
 	}
@@ -27,6 +26,6 @@ func NewPlayerTask(conn *net.TCPConn, r *Room) *playerTask {
 	return t
 }
 
-func (this *playerTask) Start() {
+func (this *PlayerTask) Start() {
 	this.tcpTask.Start()
 }

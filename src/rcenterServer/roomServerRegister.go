@@ -40,22 +40,21 @@ func (rc *RoomServerRegisterCenter) RegNewServer(info *myRPC.RoomServerInfo) {
 	rc.roomServerList.PushBack(tmp)
 }
 
-func (rc *RoomServerRegisterCenter) minPlayerServe() myRPC.RoomRPCClient {
+func (rc *RoomServerRegisterCenter) minRoomServe() myRPC.RoomRPCClient {
 	rc.mutex.Lock()
 	defer rc.mutex.Unlock()
 	if rc.roomServerList.Len() == 0 {
 		return nil
 	}
-	minNum := rc.roomServerList.Front().PlayerNum
+	minNum := rc.roomServerList.Front().RoomNum
 	cl := rc.roomServerList.Front().Client
 
 	for n := rc.roomServerList.FrontNode(); n != nil; n = n.Next() {
-		if minNum > n.Value.PlayerNum {
-			minNum = n.Value.PlayerNum
+		if minNum > n.Value.RoomNum {
+			minNum = n.Value.RoomNum
 			cl = n.Value.Client
 		}
 	}
-
 	return cl
 }
 

@@ -19,7 +19,7 @@ func RoomServerHeart(rsInfo *myRPC.RoomServerInfo) error {
 func CreateRoom(rsInfo *myRPC.GameRoomFindInfo) (*myRPC.RoomInfo, error) {
 	//TODO 创建房间
 
-	room, err := GetRoomServerRegisterCenter().minPlayerServe().CreateRoom(context.Background(), rsInfo)
+	room, err := GetRoomServerRegisterCenter().minRoomServe().CreateRoom(context.Background(), rsInfo)
 
 	if err != nil {
 		fmt.Println(err)
@@ -30,7 +30,6 @@ func CreateRoom(rsInfo *myRPC.GameRoomFindInfo) (*myRPC.RoomInfo, error) {
 }
 
 func GetToken(username string, addr string, roomId string) []byte {
-	//todo
 	byteKey, _ := os.ReadFile("rcenterServer/key.private.pem")
 	var priKey rsa.PrivateKey
 	err := json.Unmarshal(byteKey, &priKey)

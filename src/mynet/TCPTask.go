@@ -5,8 +5,9 @@ import (
 	"io"
 	"net"
 	"sync"
-	"unsafe"
 )
+
+const HEADER_SIZE = 4
 
 type TCPTaskInter interface {
 	ParseMsg(data []byte) bool
@@ -51,9 +52,9 @@ func (this *TCPTask) recvloop() {
 
 	for {
 		tolalSize = this.recvBuf.RdSize()
-		if tolalSize < int(unsafe.Sizeof(new(TCPHeader))) {
+		if tolalSize < HEADER_SIZE {
 
-			neednum := int(unsafe.Sizeof(new(TCPHeader))) - tolalSize
+			neednum := HEADER_SIZE - tolalSize
 
 			err := this.readAtLeast(this.recvBuf, neednum)
 			if err != nil {
@@ -69,10 +70,10 @@ func (this *TCPTask) recvloop() {
 
 		msgBuf = this.recvBuf.RdBuf()
 
-		HeadBuf := msgBuf[0:int(unsafe.Sizeof(new(TCPHeader)))]
-		Head := *(**TCPHeader)(unsafe.Pointer(&HeadBuf))
-		if tolalSize < Head.Size+int(unsafe.Sizeof(new(TCPHeader))) {
-			neednum := Head.Size + int(unsafe.Sizeof(new(TCPHeader))) - tolalSize
+		HeadBuf := msgBuf[0:HEADER_SIZE]
+		var Head = int(HeadBuf[0]) + int(HeadBuf[1])<<8 + int(HeadBuf[2])<<16 + int(HeadBuf[3])<<24
+		if tolalSize < Head+HEADER_SIZE {
+			neednum := Head + HEADER_SIZE - tolalSize
 			err := this.readAtLeast(this.recvBuf, neednum)
 			if err != nil {
 				if err != io.EOF {
@@ -84,9 +85,9 @@ func (this *TCPTask) recvloop() {
 			msgBuf = this.recvBuf.RdBuf()
 		}
 
-		this.Task.ParseMsg(msgBuf[int(unsafe.Sizeof(new(TCPHeader))) : int(unsafe.Sizeof(new(TCPHeader)))+Head.Size])
+		this.Task.ParseMsg(msgBuf[HEADER_SIZE : HEADER_SIZE+Head])
 
-		this.recvBuf.RdFlip(Head.Size + int(unsafe.Sizeof(new(TCPHeader))))
+		this.recvBuf.RdFlip(Head + HEADER_SIZE)
 
 	}
 }

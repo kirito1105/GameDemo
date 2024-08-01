@@ -1,10 +1,11 @@
 package main
 
-import "myGameDemo/roomServer"
+import (
+	"myGameDemo/roomServer"
+)
 
 type Info struct {
 	data2 int32
-	data  int64
 }
 type SimulatedSlice struct {
 	array uintptr
@@ -13,7 +14,7 @@ type SimulatedSlice struct {
 }
 
 func main() {
-	//a := Info{1, 2}
+	//a := Info{1}
 	//Len := unsafe.Sizeof(a)
 	//simSlice := &SimulatedSlice{
 	//	array: uintptr(unsafe.Pointer(&a)),
