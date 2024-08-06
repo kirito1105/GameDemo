@@ -7,17 +7,23 @@ import (
 )
 
 type Room struct {
-	RoomID      string
-	tcpListener mynet.TCPListener
-	players     []*PlayerTask
-	world0      *world.World
+	RoomID         string
+	tcpListener    mynet.TCPListener
+	players        []*PlayerTask
+	playerWithName map[string]*PlayerTask
+	world0         *world.World
 }
 
 func NewRoom() *Room {
 	t := &Room{
-		tcpListener: mynet.TCPListener{},
+		tcpListener:    mynet.TCPListener{},
+		playerWithName: make(map[string]*PlayerTask),
+		world0:         nil,
 	}
-	t.world0 = world.NewWorld()
+	go func() {
+		a := world.NewWorld()
+		t.world0 = a
+	}()
 	return t
 }
 
@@ -47,6 +53,13 @@ func (r *Room) Start() {
 	}()
 }
 
+func (r *Room) GetMyWorld(x int, y int) *world.Block {
+	//todo
+	b := r.world0.GetBlock(x, y)
+	return &b
+}
+
 func (r *Room) GetOnlineList() {
+	//todo
 	return
 }

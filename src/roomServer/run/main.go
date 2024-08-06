@@ -23,6 +23,6 @@ func main() {
 	//}
 	//data := *(*[]byte)(unsafe.Pointer(simSlice))
 	//fmt.Println(data)
-	roomServer.GetRoomServer().Run("localhost", 1324)
+	roomServer.GetRoomServer().Run("localhost", 2005)
 
 }

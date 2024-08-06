@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+option go_package = "../myMsg";
+package myMsg;
+
+
+
+message Block{
+  int64 type = 1;
+  float x = 2;
+  float y= 3;
+  repeated Obj list = 4;
+}
+
+message Obj{
+  float x =1;
+  float y= 2;
+  string objType = 3;
+}
+
+message Msg{
+  Type MsgType = 1;
+  string username = 2;
+  string addr = 3;
+  string roomId =  4;
+  string Token = 5;
+  Block block = 6;
+  float  x= 7;
+  float  y = 8;
+}
+
+enum Type{
+  Heart = 0;
+  Authentication = 1;
+  GetWorld = 2;
+  PlayerInfo = 3;
+  BlockInfo = 4;
+  Ping = 5;
+  Pong = 6;
+}

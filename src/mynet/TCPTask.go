@@ -72,6 +72,7 @@ func (this *TCPTask) recvloop() {
 
 		HeadBuf := msgBuf[0:HEADER_SIZE]
 		var Head = int(HeadBuf[0]) + int(HeadBuf[1])<<8 + int(HeadBuf[2])<<16 + int(HeadBuf[3])<<24
+		fmt.Println(Head)
 		if tolalSize < Head+HEADER_SIZE {
 			neednum := Head + HEADER_SIZE - tolalSize
 			err := this.readAtLeast(this.recvBuf, neednum)

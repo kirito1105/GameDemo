@@ -56,13 +56,12 @@ type World struct {
 	num    int
 }
 type Block struct {
-	typeOfBlock int
+	TypeOfBlock int
 	Objs        []Obj
 }
 type Obj struct {
-	x       int
-	y       int
-	objType string
+	Index   *Point
+	ObjType string
 }
 
 func CreateWorld(blocks [Size][Size]bool) *World {
@@ -70,9 +69,9 @@ func CreateWorld(blocks [Size][Size]bool) *World {
 	for i := 0; i < Size; i++ {
 		for j := 0; j < Size; j++ {
 			if blocks[i][j] {
-				w.blocks[i][j].typeOfBlock = 0
+				w.blocks[i][j].TypeOfBlock = 0
 			} else {
-				w.blocks[i][j].typeOfBlock = 1
+				w.blocks[i][j].TypeOfBlock = 1
 			}
 		}
 	}
@@ -97,7 +96,7 @@ func (this *World) Init() {
 	var once sync.Once
 	for i := 0; i < Size; i++ {
 		for j := 0; j < Size; j++ {
-			if this.blocks[i][j].typeOfBlock == 0 {
+			if this.blocks[i][j].TypeOfBlock == 0 {
 				continue
 			}
 			for x := 0; x < GRID_PER_BLOCK; x++ {
@@ -107,9 +106,15 @@ func (this *World) Init() {
 					for _, rate := range *GetList() {
 						if r < num+rate.rate {
 							this.blocks[i][j].Objs = append(this.blocks[i][j].Objs, Obj{
-								objType: rate.objType,
-								x:       PIONT_PER_GRID/2 + x*GRID_PER_BLOCK,
-								y:       PIONT_PER_GRID/2 + y*GRID_PER_BLOCK,
+								ObjType: rate.objType,
+								Index: &Point{
+									BlockX: i,
+									BlockY: j,
+									GridX:  x,
+									GridY:  y,
+									X:      PIONT_PER_GRID / 2,
+									Y:      PIONT_PER_GRID / 2,
+								},
 							})
 							this.num++
 							break

@@ -2,11 +2,11 @@ package logicServer
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"log"
-	"myGameDemo/logicServer/msg"
 	"myGameDemo/logicServer/userConsole"
+	"myGameDemo/myMsg"
 	"myGameDemo/myRPC"
 	"net/http"
 	"strconv"
@@ -27,7 +27,7 @@ func register(w http.ResponseWriter, r *http.Request) {
 		log.Fatal(err)
 		return
 	}
-	err = msg.Send(&w, result)
+	err = myMsg.Send(&w, result)
 	if err != nil {
 		return
 	}
@@ -46,7 +46,7 @@ func login(w http.ResponseWriter, r *http.Request) {
 		log.Fatal(err)
 		return
 	}
-	err = msg.Send(&w, result)
+	err = myMsg.Send(&w, result)
 	if err != nil {
 		return
 	}
@@ -60,7 +60,7 @@ func getOnlineUser(w http.ResponseWriter, r *http.Request) {
 		log.Fatal(err)
 		return
 	}
-	err = msg.Send(&w, result)
+	err = myMsg.Send(&w, result)
 	if err != nil {
 		return
 	}
@@ -73,7 +73,7 @@ func getUsersList(w http.ResponseWriter, r *http.Request) {
 		log.Fatal(err)
 		return
 	}
-	err = msg.Send(&w, result)
+	err = myMsg.Send(&w, result)
 	if err != nil {
 		return
 	}
@@ -99,7 +99,7 @@ type LogicServer struct {
 }
 
 func serverID(w http.ResponseWriter, r *http.Request) {
-	re := msg.Res{Code: 0, Msg: ID}
+	re := myMsg.Res{Code: 0, Msg: ID}
 	if err := json.NewEncoder(w).Encode(re); err != nil {
 		log.Fatal(err)
 	}
@@ -132,8 +132,8 @@ func createRoom(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-	if check.Code != msg.SUCCESS {
-		msg.Send(&w, &msg.Res{Code: msg.OUTTIMESESSION, Msg: "会话过期"})
+	if check.Code != myMsg.SUCCESS {
+		myMsg.Send(&w, &myMsg.Res{Code: myMsg.OUTTIMESESSION, Msg: "会话过期"})
 		return
 	}
 	username := check.Msg
@@ -142,8 +142,13 @@ func createRoom(w http.ResponseWriter, r *http.Request) {
 		GameMode:   myRPC.Gamemode_COOPERATION,
 		MustCreate: true,
 	})
-	fmt.Println(a)
-	msg.Send(&w, &msg.Res{Code: msg.SUCCESS, Data: a})
+	m := RoomToClien{
+		IsFind:   a.IsFind,
+		RoomAddr: a.RoomAddr,
+		RoomId:   a.RoomId,
+	}
+	m.Token = base64.StdEncoding.EncodeToString(a.Token)
+	myMsg.Send(&w, &myMsg.Res{Code: myMsg.SUCCESS, Data: m})
 }
 
 //func matchingRoom(w http.ResponseWriter, r *http.Request) {

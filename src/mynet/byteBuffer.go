@@ -58,7 +58,7 @@ func (this *ByteBuffer) WrInc(size int) {
 }
 
 func (this *ByteBuffer) ReBuff(size int) {
-	if this.WrSize()+this.RdSize() > size {
+	if this.WrSize()+this._readIndex < size {
 		tmpBuf := make([]byte, this._writeIndex+size)
 		copy(tmpBuf, this._buffer)
 		this._buffer = tmpBuf

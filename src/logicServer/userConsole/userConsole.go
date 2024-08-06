@@ -7,7 +7,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/bcrypt"
 	"log"
-	"myGameDemo/logicServer/msg"
+	"myGameDemo/myMsg"
 	"sync"
 	"time"
 )
@@ -54,15 +54,15 @@ func checkPassword(password, hashedPassword string) bool {
 	return err == nil
 }
 
-func (C *UserConsole) Register(auth UserInfo) (*msg.Res, error) {
+func (C *UserConsole) Register(auth UserInfo) (*myMsg.Res, error) {
 	exists, err := C.rdb.SIsMember(context.Background(), "Users", auth.Username).Result()
 	if err != nil {
 		log.Fatalf("Error checking if username %s exists in set %s: %v", auth.Username, "Users", err)
 		return nil, err
 	}
-	var result msg.Res = msg.Res{}
+	var result myMsg.Res = myMsg.Res{}
 	if exists {
-		result.Code = msg.REGISTERED
+		result.Code = myMsg.REGISTERED
 		result.Msg = "用户名已注册"
 		return &result, nil
 	}
@@ -77,20 +77,20 @@ func (C *UserConsole) Register(auth UserInfo) (*msg.Res, error) {
 	txn.HSet(context.Background(), "User:"+auth.Username, fields)
 	_, _ = txn.Exec(context.Background())
 
-	result.Code = msg.SUCCESS
+	result.Code = myMsg.SUCCESS
 	result.Msg = "注册成功"
 	return &result, nil
 }
 
-func (C *UserConsole) Login(auth UserInfo) (*msg.Res, error) {
-	var result msg.Res = msg.Res{}
+func (C *UserConsole) Login(auth UserInfo) (*myMsg.Res, error) {
+	var result myMsg.Res = myMsg.Res{}
 	exists, err := C.rdb.SIsMember(context.Background(), "Users", auth.Username).Result()
 	if err != nil {
 		return &result, err
 	}
 
 	if !exists {
-		result.Code = msg.NOUSER
+		result.Code = myMsg.NOUSER
 		result.Msg = "用户名不存在"
 		return &result, nil
 	}
@@ -98,7 +98,7 @@ func (C *UserConsole) Login(auth UserInfo) (*msg.Res, error) {
 	hashedPassword, _ := C.rdb.HGet(context.Background(), "User:"+auth.Username, "pwd").Result()
 	if !checkPassword(auth.Pwd, hashedPassword) {
 
-		result.Code = msg.PWDERR
+		result.Code = myMsg.PWDERR
 		result.Msg = "用户名或密码错误"
 		return &result, nil
 	}
@@ -120,12 +120,12 @@ func (C *UserConsole) Login(auth UserInfo) (*msg.Res, error) {
 		_, _ = txn.Exec(context.Background())
 	}
 
-	result.Code = msg.SUCCESS
+	result.Code = myMsg.SUCCESS
 	result.Msg = Session
 	return &result, nil
 }
 
-func (C *UserConsole) GetOnlineUser() (*msg.Res, error) {
+func (C *UserConsole) GetOnlineUser() (*myMsg.Res, error) {
 	ctx := context.Background()
 
 	// 使用SCAN命令遍历所有符合条件的key
@@ -148,10 +148,10 @@ func (C *UserConsole) GetOnlineUser() (*msg.Res, error) {
 			break
 		}
 	}
-	return &msg.Res{Code: msg.SUCCESS, Msg: "在线玩家列表", Data: keys}, nil
+	return &myMsg.Res{Code: myMsg.SUCCESS, Msg: "在线玩家列表", Data: keys}, nil
 }
 
-func (C *UserConsole) GetUsersList() (*msg.Res, error) {
+func (C *UserConsole) GetUsersList() (*myMsg.Res, error) {
 	members, err := C.rdb.SMembers(context.Background(), "Users").Result()
 	if err != nil {
 		log.Fatal(err)
@@ -171,7 +171,7 @@ func (C *UserConsole) GetUsersList() (*msg.Res, error) {
 			userInfo[m]["online"] = true
 		}
 	}
-	return &msg.Res{Code: msg.SUCCESS, Msg: "玩家列表", Data: userInfo}, nil
+	return &myMsg.Res{Code: myMsg.SUCCESS, Msg: "玩家列表", Data: userInfo}, nil
 
 }
 
@@ -183,11 +183,11 @@ func (C *UserConsole) GetUsername(sessionID string) (string, error) {
 	return result, nil
 }
 
-func (C *UserConsole) Heart(session SessionInfo) (*msg.Res, error) {
-	var result msg.Res = msg.Res{}
+func (C *UserConsole) Heart(session SessionInfo) (*myMsg.Res, error) {
+	var result myMsg.Res = myMsg.Res{}
 	username, err := C.rdb.Get(context.Background(), "Session:"+session.SessionId).Result()
 	if errors.Is(err, redis.Nil) {
-		result.Code = msg.OUTTIMESESSION
+		result.Code = myMsg.OUTTIMESESSION
 		result.Msg = "会话已过期"
 		return &result, nil
 	}
@@ -195,15 +195,15 @@ func (C *UserConsole) Heart(session SessionInfo) (*msg.Res, error) {
 	txn.Set(context.Background(), "Session:"+session.SessionId, username, TOKEN_EXP_TIME)
 	txn.Set(context.Background(), "Online:"+username, session.SessionId, TOKEN_EXP_TIME)
 	_, _ = txn.Exec(context.Background())
-	result.Code = msg.SUCCESS
+	result.Code = myMsg.SUCCESS
 	result.Msg = "会话已更新"
 	return &result, nil
 }
 
-func (C *UserConsole) SessionCheck(session SessionInfo) (*msg.Res, error) {
+func (C *UserConsole) SessionCheck(session SessionInfo) (*myMsg.Res, error) {
 	username, err := C.rdb.Get(context.Background(), "Session:"+session.SessionId).Result()
 	if errors.Is(err, redis.Nil) {
-		return &msg.Res{Code: msg.OUTTIMESESSION, Msg: "会话已过期"}, nil
+		return &myMsg.Res{Code: myMsg.OUTTIMESESSION, Msg: "会话已过期"}, nil
 	}
-	return &msg.Res{Code: msg.SUCCESS, Msg: username}, nil
+	return &myMsg.Res{Code: myMsg.SUCCESS, Msg: username}, nil
 }

@@ -2,7 +2,7 @@ test*
 
 *.private.pem
 *.public.pem
-
+*.cs
 *.png
 
 tmp
