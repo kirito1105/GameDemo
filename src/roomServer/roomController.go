@@ -19,8 +19,7 @@ type RoomInfoSum struct {
 
 type RoomController struct {
 	RoomwithId map[string]*Room
-	rooms      []*Room
-	playerSum  int
+	players    map[string]*PlayerTask
 	mutex      sync.RWMutex
 }
 
@@ -31,7 +30,7 @@ func GetRoomController() *RoomController {
 	once2.Do(func() {
 		roomController = &RoomController{
 			RoomwithId: make(map[string]*Room),
-			playerSum:  0,
+			players:    make(map[string]*PlayerTask),
 		}
 	})
 	return roomController
@@ -41,7 +40,6 @@ func (rc *RoomController) AddRoom(room *Room, id string) {
 	rc.mutex.Lock()
 	defer rc.mutex.Unlock()
 	rc.RoomwithId[id] = room
-	rc.rooms = append(rc.rooms, room)
 }
 
 // DeleteSlice 删除指定元素。
@@ -60,7 +58,6 @@ func (rc *RoomController) RemoveRoom(id string) {
 	rc.mutex.Lock()
 	defer rc.mutex.Unlock()
 	delete(rc.RoomwithId, id)
-	rc.rooms = DeleteSliceR(rc.rooms, id)
 }
 
 func (rc *RoomController) GetRoom(id string) *Room {
@@ -75,9 +72,10 @@ func (rc *RoomController) PlayerOffline(username string, id string) {
 	//todo
 }
 
-func (rc *RoomController) PlayerOnline(user playerInfoSum, id string) {
+func (rc *RoomController) PlayerOnline(player *PlayerTask) {
 	rc.mutex.Lock()
 	defer rc.mutex.Unlock()
+	rc.players[player.username] = player
 	//todo
 }
 

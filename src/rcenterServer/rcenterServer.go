@@ -7,8 +7,9 @@ import (
 	"fmt"
 	"myGameDemo/myRPC"
 	"myGameDemo/tokenRSA"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
-	"sync"
 )
 
 func RoomServerHeart(rsInfo *myRPC.RoomServerInfo) error {
@@ -45,12 +46,12 @@ func GetToken(username string, addr string, roomId string) []byte {
 }
 
 func Run() {
-	var wg sync.WaitGroup
-	wg.Add(1)
+
 	go func() {
-		defer wg.Done()
 		GetLogicRPC().server()
 	}()
-
-	wg.Wait()
+	err := http.ListenAndServe("127.0.0.1:5050", nil)
+	if err != nil {
+		return
+	}
 }

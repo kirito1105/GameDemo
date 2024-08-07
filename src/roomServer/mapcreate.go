@@ -1,10 +1,11 @@
-package world
+package roomServer
 
 import (
 	"bufio"
 	"image"
 	"image/color"
 	"image/png"
+	"myGameDemo/myMsg"
 	rand "myGameDemo/myRand"
 	"os"
 	"sync"
@@ -44,6 +45,10 @@ func (p Point) ToUnity() (int, int) {
 	y := p.Y + p.GridY*PIONT_PER_GRID + p.BlockY*PIONT_PER_GRID*GRID_PER_BLOCK
 	return x, y
 }
+func (p Point) ToVector() *Vector2 {
+	x, y := p.ToUnity()
+	return &Vector2{float32(x) / 100, float32(y) / 100}
+}
 
 type BlockCreate struct {
 	world [Size][Size]bool
@@ -56,7 +61,7 @@ type World struct {
 	num    int
 }
 type Block struct {
-	TypeOfBlock int
+	TypeOfBlock myMsg.BlockType
 	Objs        []Obj
 }
 type Obj struct {
@@ -69,9 +74,9 @@ func CreateWorld(blocks [Size][Size]bool) *World {
 	for i := 0; i < Size; i++ {
 		for j := 0; j < Size; j++ {
 			if blocks[i][j] {
-				w.blocks[i][j].TypeOfBlock = 0
+				w.blocks[i][j].TypeOfBlock = myMsg.BlockType_Null
 			} else {
-				w.blocks[i][j].TypeOfBlock = 1
+				w.blocks[i][j].TypeOfBlock = myMsg.BlockType_Ground
 			}
 		}
 	}

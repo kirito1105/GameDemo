@@ -9,6 +9,7 @@ import (
 	"myGameDemo/myMsg"
 	"myGameDemo/myRPC"
 	"net/http"
+	_ "net/http/pprof"
 	"strconv"
 )
 

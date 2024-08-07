@@ -6,35 +6,67 @@ package myMsg;
 
 
 message Block{
-  int64 type = 1;
-  float x = 2;
-  float y= 3;
-  repeated Obj list = 4;
+  BlockType type = 1;
+  LocationInfo index = 2;
+  repeated Obj list = 3;
+}
+
+enum BlockType{
+  Null = 0;
+  Ground = 1;
 }
 
 message Obj{
-  float x =1;
-  float y= 2;
-  string objType = 3;
+  string objType = 1;
+  string objId = 2;
+  LocationInfo index = 3;
 }
 
 message Msg{
-  Type MsgType = 1;
-  string username = 2;
-  string addr = 3;
-  string roomId =  4;
-  string Token = 5;
-  Block block = 6;
-  float  x= 7;
-  float  y = 8;
+  MsgAuthentication Authentication = 1;
+  MsgScene scene = 2;
 }
 
-enum Type{
-  Heart = 0;
+enum Cmd{
+  Pong = 0;
   Authentication = 1;
-  GetWorld = 2;
-  PlayerInfo = 3;
-  BlockInfo = 4;
-  Ping = 5;
-  Pong = 6;
+  Move = 2;
+}
+
+message MsgFromClient{
+  Cmd cmd = 1;
+  MsgAuthentication Authentication = 2;
+  MsgMove move = 3;
+}
+
+message MsgMove{
+  float x = 1;
+  float y = 2;
+}
+
+message MsgFromService{
+  MsgScene scene = 1;
+}
+
+message MsgAuthentication{
+  string username = 1;
+  string addr = 2;
+  string roomId = 3;
+  string Token = 4;
+}
+
+message MsgScene{
+  repeated Block blocks = 1;
+  repeated CharInfo chars = 2;
+}
+
+message CharInfo{
+  string username = 1;
+  LocationInfo index = 2;
+  bool isUser = 3;
+}
+
+message LocationInfo{
+  float x = 1;
+  float y = 2;
 }

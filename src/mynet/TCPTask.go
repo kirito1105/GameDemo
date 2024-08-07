@@ -1,10 +1,10 @@
 package mynet
 
 import (
-	"fmt"
 	"io"
 	"net"
 	"sync"
+	"time"
 )
 
 const HEADER_SIZE = 4
@@ -58,11 +58,7 @@ func (this *TCPTask) recvloop() {
 
 			err := this.readAtLeast(this.recvBuf, neednum)
 			if err != nil {
-				if err != io.EOF {
-					fmt.Println(err)
-					return
-				}
-				continue
+				return
 			}
 
 			tolalSize = this.recvBuf.RdSize()
@@ -72,16 +68,11 @@ func (this *TCPTask) recvloop() {
 
 		HeadBuf := msgBuf[0:HEADER_SIZE]
 		var Head = int(HeadBuf[0]) + int(HeadBuf[1])<<8 + int(HeadBuf[2])<<16 + int(HeadBuf[3])<<24
-		fmt.Println(Head)
 		if tolalSize < Head+HEADER_SIZE {
 			neednum := Head + HEADER_SIZE - tolalSize
 			err := this.readAtLeast(this.recvBuf, neednum)
 			if err != nil {
-				if err != io.EOF {
-					fmt.Println(err)
-					return
-				}
-				continue
+				return
 			}
 			msgBuf = this.recvBuf.RdBuf()
 		}
@@ -121,6 +112,7 @@ func (this *TCPTask) sendloop() {
 func (this *TCPTask) readAtLeast(buf *ByteBuffer, neednum int) error {
 	buf.WrInc(neednum)
 	n, err := io.ReadAtLeast(this.Conn, buf.WrBuf(), neednum)
+	time.Sleep(0)
 	buf.WrFlip(n)
 	return err
 }

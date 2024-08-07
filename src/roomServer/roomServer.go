@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"myGameDemo/myRPC"
 	"myGameDemo/tokenRSA"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"strconv"
 	"sync"
@@ -48,18 +50,15 @@ func (this *RoomServer) Run(ip string, port int) {
 		GetRoomRPC().server()
 	}()
 
-	wg.Add(1)
 	go func() {
-		defer wg.Done()
 		for {
 			_, _ = GetMyClient().RoomServerHeart(context.Background(), &myRPC.RoomServerInfo{
 				Addr:      ip + ":" + strconv.Itoa(port),
-				PlayerNum: int64(GetRoomController().playerSum),
+				PlayerNum: int64(len(GetRoomController().players)),
 				RoomNum:   int64(len(GetRoomController().RoomwithId)),
 			})
 			time.Sleep(time.Second * 5)
 		}
 	}()
-
-	wg.Wait()
+	http.ListenAndServe("127.0.0.1:5051", nil)
 }
