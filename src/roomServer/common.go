@@ -1,6 +1,9 @@
 package roomServer
 
-import "sync"
+import (
+	"math"
+	"sync"
+)
 
 type ObjNode struct {
 	objType string
@@ -8,6 +11,7 @@ type ObjNode struct {
 	rate    int
 }
 
+var vision = 3
 var objlist *[]ObjNode
 var once11 sync.Once
 
@@ -53,4 +57,16 @@ func (v *Vector2) toPoint() *Point {
 	x := int(v.x * 100)
 	y := int(v.y * 100)
 	return NewPoint(x, y)
+}
+
+func (v *Vector2) CanSee(vector2 Vector2) bool {
+	point1 := v.toPoint()
+	point2 := v.toPoint()
+	if math.Abs(float64(point1.X-point2.X)) > float64(vision) {
+		return false
+	}
+	if math.Abs(float64(point1.Y-point2.Y)) > float64(vision) {
+		return false
+	}
+	return true
 }

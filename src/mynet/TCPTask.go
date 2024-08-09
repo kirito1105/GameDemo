@@ -94,11 +94,15 @@ func (this *TCPTask) sendloop() {
 		case <-this.sendSign:
 			for {
 				this.sendMux.Lock()
-				tmpBuf.Append(this.sendBuf.RdBuf()...)
-				this.sendBuf.ReSet()
+				if this.sendBuf.RdReady() {
+					tmpBuf.Append(this.sendBuf.RdBuf()...)
+					this.sendBuf.ReSet()
+				}
 				this.sendMux.Unlock()
-
-				num, err := this.Conn.Write(tmpBuf.RdBuf())
+				if !tmpBuf.RdReady() {
+					break
+				}
+				num, err := this.Conn.Write(tmpBuf.RdBuf()[:tmpBuf.RdSize()])
 				if err != nil {
 					return
 				}
@@ -118,8 +122,16 @@ func (this *TCPTask) readAtLeast(buf *ByteBuffer, neednum int) error {
 }
 
 func (this *TCPTask) SendMsg(msg []byte) {
-	_, err := this.Conn.Write(msg)
-	if err != nil {
-		return
+	this.sendMux.Lock()
+	this.sendBuf.Append(msg...)
+	this.Sighal()
+	defer this.sendMux.Unlock()
+
+}
+
+func (this *TCPTask) Sighal() {
+	select {
+	case this.sendSign <- struct{}{}:
+	default:
 	}
 }

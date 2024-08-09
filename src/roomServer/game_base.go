@@ -9,6 +9,8 @@ type objBaseI interface {
 
 	GetPos() Vector2
 	SetPos(Vector2)
+
+	GetStatus() int32
 }
 
 type ObjBase struct {
@@ -49,4 +51,8 @@ func (this *ObjBase) GetSpeed() float32 {
 
 func (this *ObjBase) SetSpeed(speed float32) {
 	this.speed = speed
+}
+
+func (this *ObjBase) GetStatus() int32 {
+	return 0
 }

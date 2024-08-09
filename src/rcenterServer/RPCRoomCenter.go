@@ -14,12 +14,19 @@ type RCServer struct {
 }
 
 func (p *RCServer) CreateRoom(ctx context.Context, gameFindInfo *myRPC.GameRoomFindInfo) (*myRPC.RoomInfo, error) {
-
-	room, err := CreateRoom(gameFindInfo)
+	if gameFindInfo.MustCreate {
+		room, err := CreateRoom(gameFindInfo)
+		if err != nil {
+			return nil, err
+		}
+		return room, nil
+	}
+	room, err := FindARoom(gameFindInfo)
 	if err != nil {
 		return nil, err
 	}
 	return room, nil
+
 }
 
 func (p *RCServer) RoomServerHeart(ctx context.Context, info *myRPC.RoomServerInfo) (*myRPC.Res, error) {

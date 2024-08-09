@@ -19,14 +19,26 @@ func RoomServerHeart(rsInfo *myRPC.RoomServerInfo) error {
 
 func CreateRoom(rsInfo *myRPC.GameRoomFindInfo) (*myRPC.RoomInfo, error) {
 	//TODO 创建房间
-
+	fmt.Println(1)
 	room, err := GetRoomServerRegisterCenter().minRoomServe().CreateRoom(context.Background(), rsInfo)
-
+	fmt.Println(rsInfo)
+	fmt.Println(room)
 	if err != nil {
 		fmt.Println(err)
 		return nil, err
 	}
+
 	room.Token = GetToken(rsInfo.Username, room.RoomAddr, room.RoomId)
+	return room, nil
+}
+
+func FindARoom(rsInfo *myRPC.GameRoomFindInfo) (*myRPC.RoomInfo, error) {
+	room, err := GetRoomServerRegisterCenter().minRoomServe().FindARoom(context.Background(), rsInfo)
+	if err != nil {
+		return nil, err
+	}
+	room.Token = GetToken(rsInfo.Username, room.RoomAddr, room.RoomId)
+	fmt.Println(room)
 	return room, nil
 }
 

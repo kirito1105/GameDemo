@@ -1,7 +1,11 @@
 package roomServer
 
 import (
+	"fmt"
+	"myGameDemo/myRPC"
+	"strconv"
 	"sync"
+	"time"
 )
 
 type playerInfoSum struct {
@@ -89,4 +93,43 @@ func (rc *RoomController) Summary() string {
 		sum += "\n"
 	}
 	return sum
+}
+
+func (rc *RoomController) RoomCreate() *myRPC.RoomInfo {
+	theRoom := NewRoom()
+	theRoom.Start()
+	roomId := strconv.Itoa(int(time.Now().UnixNano()))
+	theRoom.RoomID = roomId
+
+	rc.AddRoom(theRoom, roomId)
+	roominfo := &myRPC.RoomInfo{
+		IsFind:   true,
+		RoomId:   roomId,
+		RoomAddr: theRoom.GetTCPAddr().String(),
+	}
+
+	fmt.Println(rc.Summary())
+	return roominfo
+}
+
+func (this *RoomController) FindRooms(info *myRPC.GameRoomFindInfo, num int) []*myRPC.RoomInfo {
+	this.mutex.RLock()
+	defer this.mutex.RUnlock()
+	n := 0
+	list := []*myRPC.RoomInfo{}
+	for _, v := range this.RoomwithId {
+		//todo
+		in := &myRPC.RoomInfo{
+			IsFind:   true,
+			RoomId:   v.RoomID,
+			RoomAddr: v.GetTCPAddr().String(),
+		}
+		list = append(list, in)
+		n++
+		if n == num {
+			return list
+		}
+	}
+	return list
+
 }

@@ -26,45 +26,22 @@ func (p *PlayerTask) ParseMsg(data []byte) bool {
 	//验证身份
 	if !p.isChecked && msg.GetCmd() == myMsg.Cmd_Authentication {
 		decoded, _ := base64.StdEncoding.DecodeString(msg.GetAuthentication().GetToken())
-
+		fmt.Println(msg)
 		a := CheckToken(decoded, msg.GetAuthentication().GetUsername(), msg.GetAuthentication().GetAddr(), msg.GetAuthentication().GetRoomId())
 		if a {
 			p.username = msg.GetAuthentication().GetUsername()
 			p.isChecked = true
-			p.inRoom.taskWithName[p.username] = p
-			if p.inRoom.players[p.username] == nil {
-				p.inRoom.players[p.username] = NewPlayer(
-					p.username,
-					*p.inRoom.world0.GetSpawn().ToVector(),
-				)
-			}
+
+			p.inRoom.PlayerIn(p)
 			fmt.Println(msg.GetAuthentication().GetUsername(), "验证成功")
-			GetRoomController().PlayerOnline(p)
+
+		} else {
+			fmt.Println(1)
+			return true
 		}
 
-		for p.inRoom.world0 == nil {
-		}
+		scene := p.inRoom.GetInitInfo(p.username)
 
-		scene := &myMsg.MsgScene{
-			Blocks: make([]*myMsg.Block, 0),
-			Chars:  make([]*myMsg.CharInfo, 0),
-		}
-		v := p.inRoom.players[p.username].GetPos()
-		playInfo := &myMsg.CharInfo{
-			Username: p.username,
-			Index: &myMsg.LocationInfo{
-				X: v.x,
-				Y: v.y,
-			},
-			IsUser: true,
-		}
-		scene.Chars = append(scene.Chars, playInfo)
-		location := p.inRoom.players[p.username].pos.toPoint()
-		for i := location.BlockX - 3; i <= location.BlockX+3; i++ {
-			for j := location.BlockY - 3; j <= location.BlockY+3; j++ {
-				scene.Blocks = append(scene.Blocks, p.GetMsgBlockWithIndex(i, j))
-			}
-		}
 		m := myMsg.MsgFromService{
 			Scene: scene,
 		}
@@ -81,48 +58,26 @@ func (p *PlayerTask) ParseMsg(data []byte) bool {
 	if msg.GetCmd() == myMsg.Cmd_Move {
 		move := &PlayerMove{
 			username: p.username,
-			velocity: Vector2{
+			velocity: &Vector2{
 				x: msg.GetMove().GetX(),
 				y: msg.GetMove().GetY(),
 			},
 		}
+		fmt.Println(msg.Move)
 		p.inRoom.chan_PlayerMove <- move
 	}
+
+	//停止移动
+	if msg.GetCmd() == myMsg.Cmd_StopMove {
+		move := &PlayerMove{
+			username: p.username,
+			velocity: nil,
+		}
+		p.inRoom.chan_PlayerMove <- move
+	}
+
 	//TODO implement
 	return true
-}
-
-func (p *PlayerTask) GetMsgBlockWithIndex(x int, y int) *myMsg.Block { //x,y为Block坐标
-	if x < 0 || x >= Size {
-		return nil
-	}
-	if y < 0 || y >= Size {
-		return nil
-	}
-	b := p.inRoom.GetMyWorld(x, y)
-	list := make([]*myMsg.Obj, 0)
-	for _, i := range b.Objs {
-		x, y := i.Index.ToUnity()
-		obj := &myMsg.Obj{
-			ObjType: i.ObjType,
-			Index: &myMsg.LocationInfo{
-				X: float32(x) / 100,
-				Y: float32(y) / 100,
-			},
-		}
-		list = append(list, obj)
-	}
-
-	block := myMsg.Block{
-		Type: b.TypeOfBlock,
-		Index: &myMsg.LocationInfo{
-			X: float32(x*GRID_PER_BLOCK + 5),
-			Y: float32(y*GRID_PER_BLOCK + 5),
-		},
-		List: list,
-	}
-
-	return &block
 }
 
 func NewPlayerTask(conn *net.TCPConn, r *Room) *PlayerTask {
@@ -142,6 +97,12 @@ func (this *PlayerTask) Start() {
 // 玩家局内信息
 type Player struct {
 	ObjBase
+	Asta   myMsg.AnimatorStatus
+	Online bool
+}
+
+func (this *Player) GetStatus() int32 {
+	return int32(this.Asta)
 }
 
 func NewPlayer(id string, pos Vector2) *Player {
@@ -149,12 +110,12 @@ func NewPlayer(id string, pos Vector2) *Player {
 	p.SetID(id)
 	p.SetHp(100)
 	p.SetPos(pos)
-	p.SetSpeed(2.0)
+	p.SetSpeed(4.0)
 	return p
 }
 
 // 移动
 type PlayerMove struct {
 	username string
-	velocity Vector2
+	velocity *Vector2
 }

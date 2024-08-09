@@ -31,6 +31,7 @@ enum Cmd{
   Pong = 0;
   Authentication = 1;
   Move = 2;
+  StopMove = 3;
 }
 
 message MsgFromClient{
@@ -63,7 +64,16 @@ message MsgScene{
 message CharInfo{
   string username = 1;
   LocationInfo index = 2;
-  bool isUser = 3;
+  LocationInfo face = 3;
+  bool isUser = 4;
+  AnimatorStatus AStatus = 5;
+}
+
+enum AnimatorStatus{
+  Default = 0;
+  MOVE = 1;
+  STOPMOVE = 2;
+  ATTACK = 3;
 }
 
 message LocationInfo{

@@ -2,40 +2,28 @@ package roomServer
 
 import (
 	"context"
-	"fmt"
 	"google.golang.org/grpc"
 	"log"
 	"myGameDemo/myRPC"
 	"net"
 	"strconv"
 	"sync"
-	"time"
 )
 
 type RServer struct {
 	*myRPC.UnimplementedRoomRPCServer
 }
 
-func RoomCreate() *myRPC.RoomInfo {
-	theRoom := NewRoom()
-	theRoom.Start()
-	roomId := strconv.Itoa(int(time.Now().UnixNano()))
-	theRoom.RoomID = roomId
-
-	GetRoomController().AddRoom(theRoom, roomId)
-	roominfo := &myRPC.RoomInfo{
-		IsFind:   true,
-		RoomId:   roomId,
-		RoomAddr: theRoom.GetTCPAddr().String(),
-	}
-
-	fmt.Println(GetRoomController().Summary())
-	return roominfo
-}
-
-func (R RServer) CreateRoom(ctx context.Context, info *myRPC.GameRoomFindInfo) (*myRPC.RoomInfo, error) {
-	roominfo := RoomCreate()
+func (R *RServer) CreateRoom(ctx context.Context, info *myRPC.GameRoomFindInfo) (*myRPC.RoomInfo, error) {
+	roominfo := GetRoomController().RoomCreate()
 	return roominfo, nil
+}
+func (R *RServer) FindARoom(ctx context.Context, info *myRPC.GameRoomFindInfo) (*myRPC.RoomInfo, error) {
+	list := GetRoomController().FindRooms(info, 1)
+	if len(list) > 0 {
+		return list[0], nil
+	}
+	return GetRoomController().RoomCreate(), nil
 }
 
 type RPCRoom struct {

@@ -79,3 +79,7 @@ func (this *ByteBuffer) Append(buf ...byte) {
 	copy(this.WrBuf(), buf)
 	this.WrFlip(size)
 }
+
+func (this *ByteBuffer) RdReady() bool {
+	return this._writeIndex > this._readIndex
+}

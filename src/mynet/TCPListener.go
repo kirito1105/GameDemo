@@ -4,6 +4,8 @@ import (
 	"net"
 )
 
+const URL = "192.168.96.182:0"
+
 type TCPListener struct {
 	listener *net.TCPListener
 }
@@ -13,7 +15,7 @@ func (this *TCPListener) Addr() net.Addr {
 }
 
 func (this *TCPListener) ListenTCP() error {
-	addr, _ := net.ResolveTCPAddr("tcp", "127.0.0.1:0")
+	addr, _ := net.ResolveTCPAddr("tcp", URL)
 	var err error
 	this.listener, err = net.ListenTCP("tcp", addr)
 	if err != nil {

@@ -58,5 +58,6 @@ service rCenterRPC {
 
 service roomRPC{
   rpc CreateRoom(GameRoomFindInfo) returns(RoomInfo);//根据用户信息返回创建房间并返房间信息
+  rpc FindARoom(GameRoomFindInfo) returns(RoomInfo);//根据信息找到合适的房间
   rpc GetRoomList(Empty) returns(RoomInfoArray);//获取房间列表
 }
