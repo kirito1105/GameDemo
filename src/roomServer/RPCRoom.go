@@ -2,6 +2,7 @@ package roomServer
 
 import (
 	"context"
+	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"log"
 	"myGameDemo/myRPC"
@@ -57,14 +58,19 @@ func (p *RPCRoom) run() {
 
 	lis, err := net.Listen("tcp", p.ip+":"+strconv.Itoa(p.port))
 	if err != nil {
-		log.Fatal(err)
+		logrus.Fatal("[RPC]输出化失败", err)
 	}
-
-	grpcServer.Serve(lis)
+	logrus.Info("[RPC]初始化成功")
+	err = grpcServer.Serve(lis)
+	if err != nil {
+		logrus.Fatal("[RPC]调用出错", err)
+		return
+	}
 }
 
 func (p *RPCRoom) server() {
 	p.run()
+
 }
 
 var myClient myRPC.RCenterRPCClient

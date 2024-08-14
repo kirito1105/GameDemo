@@ -2,13 +2,19 @@ package roomServer
 
 import (
 	"math"
+	"myGameDemo/myMsg"
 	"sync"
 )
 
 type ObjNode struct {
-	objType string
+	objType ObjType
 	name    string
 	rate    int
+}
+
+type ObjType struct {
+	form    myMsg.Form
+	subForm myMsg.SubForm
 }
 
 var vision = 3
@@ -18,10 +24,10 @@ var once11 sync.Once
 func GetList() *[]ObjNode {
 	once11.Do(func() {
 		objlist = &[]ObjNode{
-			ObjNode{"Tree_01", "tree", 300},
-			ObjNode{"Berry_bush_01", "BerryBush", 100},
-			ObjNode{"Berry_bush_02", "TropicalBerryBush", 50},
-			ObjNode{"Berry_bush_03", "JuicyBerryBush", 50},
+			ObjNode{ObjType{myMsg.Form_TREE, myMsg.SubForm_Tree_01}, "tree", 300},
+			ObjNode{ObjType{myMsg.Form_BUSH, myMsg.SubForm_Berry_bush_01}, "BerryBush", 100},
+			ObjNode{ObjType{myMsg.Form_BUSH, myMsg.SubForm_Berry_bush_02}, "TropicalBerryBush", 50},
+			ObjNode{ObjType{myMsg.Form_BUSH, myMsg.SubForm_Berry_bush_03}, "JuicyBerryBush", 50},
 		}
 	})
 	return objlist

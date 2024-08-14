@@ -2,6 +2,7 @@ package roomServer
 
 import (
 	"fmt"
+	"github.com/sirupsen/logrus"
 	"myGameDemo/myRPC"
 	"strconv"
 	"sync"
@@ -98,9 +99,10 @@ func (rc *RoomController) Summary() string {
 func (rc *RoomController) RoomCreate() *myRPC.RoomInfo {
 	theRoom := NewRoom()
 	theRoom.Start()
+
 	roomId := strconv.Itoa(int(time.Now().UnixNano()))
 	theRoom.RoomID = roomId
-
+	logrus.Debug("[房间]房间创建成功:", theRoom.RoomID)
 	rc.AddRoom(theRoom, roomId)
 	roominfo := &myRPC.RoomInfo{
 		IsFind:   true,

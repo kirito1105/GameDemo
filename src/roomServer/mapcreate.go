@@ -56,17 +56,14 @@ type BlockCreate struct {
 }
 
 type World struct {
-	blocks [Size][Size]Block
-	spawn  *Point
-	num    int
+	ObjManager *ObjectManager
+	blocks     [Size][Size]Block
+	spawn      *Point
+	num        int
 }
 type Block struct {
 	TypeOfBlock myMsg.BlockType
-	Objs        []Obj
-}
-type Obj struct {
-	Index   *Point
-	ObjType string
+	Objs        []ObjBaseI
 }
 
 func CreateWorld(blocks [Size][Size]bool) *World {
@@ -80,6 +77,7 @@ func CreateWorld(blocks [Size][Size]bool) *World {
 			}
 		}
 	}
+	w.ObjManager = NewObjManager()
 	return &w
 }
 
@@ -110,17 +108,21 @@ func (this *World) Init() {
 					num := 0
 					for _, rate := range *GetList() {
 						if r < num+rate.rate {
-							this.blocks[i][j].Objs = append(this.blocks[i][j].Objs, Obj{
-								ObjType: rate.objType,
-								Index: &Point{
-									BlockX: i,
-									BlockY: j,
-									GridX:  x,
-									GridY:  y,
-									X:      PIONT_PER_GRID / 2,
-									Y:      PIONT_PER_GRID / 2,
-								},
-							})
+
+							index := Point{
+								BlockX: i,
+								BlockY: j,
+								GridX:  x,
+								GridY:  y,
+								X:      PIONT_PER_GRID / 2,
+								Y:      PIONT_PER_GRID / 2,
+							}
+							v := index.ToVector()
+
+							o := this.ObjManager.NewObj(rate.objType)
+							o.SetPos(*v)
+
+							this.blocks[i][j].Objs = append(this.blocks[i][j].Objs, o)
 							this.num++
 							break
 						}

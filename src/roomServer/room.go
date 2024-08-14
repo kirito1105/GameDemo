@@ -6,6 +6,7 @@ import (
 	"myGameDemo/myMsg"
 	"myGameDemo/mynet"
 	"net"
+	"sync"
 	"time"
 )
 
@@ -19,16 +20,22 @@ const (
 type Room struct {
 	RoomID       string                 //room Id
 	tcpListener  mynet.TCPListener      //tco
-	tasks        []*PlayerTask          //conn list
 	taskWithName map[string]*PlayerTask //player map
 	players      map[string]*Player
 	world0       *World
 
+	//活跃检测
+	inactive *Set
+	pinged   *Set
+
+	FNO int64 //帧序号
 	//操作
-	chan_PlayerMove chan *PlayerMove
+	chan_PlayerMove  chan *PlayerMove
+	mutex_PlayerMove sync.Mutex
 
 	//脏数据
 	chan_Char chan *myMsg.CharInfo
+	chan_move chan *myMsg.MoveInfo
 }
 
 func NewRoom() *Room {
@@ -38,9 +45,14 @@ func NewRoom() *Room {
 		players:      make(map[string]*Player),
 		world0:       nil,
 
+		inactive: NewSet(),
+		pinged:   NewSet(),
+		FNO:      1,
+
 		chan_PlayerMove: make(chan *PlayerMove, 10),
 
 		chan_Char: make(chan *myMsg.CharInfo, 10),
+		chan_move: make(chan *myMsg.MoveInfo, 10),
 	}
 	go func() {
 		a := NewWorld()
@@ -58,14 +70,27 @@ func (this *Room) PlayerIn(p *PlayerTask) {
 			*this.GetWorld().GetSpawn().ToVector(),
 		)
 	}
+	new_player := &myMsg.CharInfo{
+		Username: p.username,
+		Index: &myMsg.LocationInfo{
+			X: this.players[p.username].GetPos().x,
+			Y: this.players[p.username].GetPos().y,
+		},
+	}
+
+	this.chan_Char <- new_player
 
 	this.players[p.username].Online = true
 
 	GetRoomController().PlayerOnline(p)
 }
 
-func (this *Room) PlayerOff(p *PlayerTask) {
-	//todo
+func (this *Room) PlayerOff(u string) {
+	this.taskWithName[u].Close()
+	delete(this.taskWithName, u)
+	this.players[u].Online = false
+	//todo 广播玩家离线消息
+	GetRoomController().PlayerOffline(u, this.RoomID)
 }
 
 func (this *Room) GetMsgBlockWithIndex(x int, y int) *myMsg.Block { //x,y为Block坐标
@@ -78,12 +103,14 @@ func (this *Room) GetMsgBlockWithIndex(x int, y int) *myMsg.Block { //x,y为Bloc
 	b := this.GetMyWorld(x, y)
 	list := make([]*myMsg.Obj, 0)
 	for _, i := range b.Objs {
-		x, y := i.Index.ToUnity()
+		v := i.GetPos()
+		f := i.GetObjType()
 		obj := &myMsg.Obj{
-			ObjType: i.ObjType,
+			Form:    int32(f.form),
+			Subform: int32(f.subForm),
 			Index: &myMsg.LocationInfo{
-				X: float32(x) / 100,
-				Y: float32(y) / 100,
+				X: v.x,
+				Y: v.y,
 			},
 		}
 		list = append(list, obj)
@@ -115,13 +142,13 @@ func (this *Room) GetInitInfo(username string) *myMsg.MsgScene {
 			continue
 		}
 		playInfo := &myMsg.CharInfo{
-			Username: p.objId,
+			Username: p.username,
 			Index: &myMsg.LocationInfo{
 				X: p.GetPos().x,
 				Y: p.GetPos().y,
 			},
 		}
-		if p.objId == username {
+		if p.username == username {
 			playInfo.IsUser = true
 		}
 		scene.Chars = append(scene.Chars, playInfo)
@@ -156,23 +183,89 @@ func (r *Room) Start() {
 				return
 			}
 			p := NewPlayerTask(conn, r)
-			r.tasks = append(r.tasks, p)
 			p.Start()
 		}
 	}()
+	//TODO bufTest
 	go func() {
+		for {
+			ele := SkillEle{
+				SkillExId: 123456,
+				sec:       5,
+				eleId:     100,
+				byStep:    SKILL_STEP_START,
+				value:     100,
+				timer:     time.Now().Unix() + 5,
+			}
+			for _, p := range r.players {
+				p.bufManger.add(&ele)
+			}
+			time.Sleep(time.Second * 10)
+		}
+	}()
+
+	//TODO END
+
+	go func() {
+		statusTicker := time.Tick(time.Second)
 		ticker := time.Tick(ft)
 		for {
 			select {
 			case <-ticker:
-				r.MainLoop()
+				//t := time.Now().UnixMicro()
+				r.FNO = r.FNO + 1
+				r.MoveLoop()
+				r.MoveUpdate()
 				r.Update()
+			//fmt.Println("一帧消耗了", time.Now().UnixMicro()-t)
+			case <-statusTicker:
+				for _, p := range r.players {
+					p.bufManger.timeTick()
+				}
+			}
+		}
+	}()
+	//活跃检测
+	go func() {
+		ticker := time.Tick(time.Second * 30)
+		for {
+			select {
+			case <-ticker:
+				//关闭两侧未收到消息的连接
+				r.pinged.Range(func(key any, value any) bool {
+					u := fmt.Sprint(key)
+					r.PlayerOff(u)
+					return true
+				})
+
+				//向未活跃的连接发送ping
+
+				r.inactive.Range(func(key any, value any) bool {
+					u := fmt.Sprint(key)
+					msg := &myMsg.MsgFromService{
+						Ping: true,
+					}
+					bytes, _ := proto.Marshal(msg)
+					r.taskWithName[u].tcpTask.SendMsg(AddHeader(bytes))
+					r.pinged.Add(u)
+					return true
+				})
+				r.inactive.Clear()
+				//向一级列表加入所有其他连接
+				for u, _ := range r.taskWithName {
+					if !r.pinged.Exist(u) {
+						r.inactive.Add(u)
+					}
+				}
+
 			}
 		}
 	}()
 }
 
-func (r *Room) MainLoop() {
+func (r *Room) MoveLoop() {
+	r.mutex_PlayerMove.Lock()
+	defer r.mutex_PlayerMove.Unlock()
 STEP:
 	for {
 		select {
@@ -180,28 +273,49 @@ STEP:
 			player := r.players[move.username]
 			pos := player.GetPos()
 			if move.velocity != nil {
-				newPos := pos.Add(*move.velocity.MultiplyNum(player.speed * float32(ft) / float32(time.Second)))
+				newPos := pos.Add(*move.velocity.MultiplyNum(player.GetSpeed() * float32(ft) / float32(time.Second)))
 				player.SetPos(*newPos)
-				ch := &myMsg.CharInfo{
-					Username: player.GetID(),
-					Index: &myMsg.LocationInfo{
+				//ch := &myMsg.CharInfo{
+				//	Username: player.GetID(),
+				//	Index: &myMsg.LocationInfo{
+				//		X: newPos.x,
+				//		Y: newPos.y,
+				//	},
+				//	Face: &myMsg.LocationInfo{
+				//		X: move.velocity.x,
+				//		Y: move.velocity.y,
+				//	},
+				//	AStatus: myMsg.AnimatorStatus_MOVE,
+				//}
+				//r.chan_Char <- ch
+				mv := &myMsg.MoveInfo{
+					Username: move.username,
+					Des: &myMsg.LocationInfo{
 						X: newPos.x,
 						Y: newPos.y,
 					},
-					Face: &myMsg.LocationInfo{
+					V: &myMsg.LocationInfo{
 						X: move.velocity.x,
 						Y: move.velocity.y,
 					},
-					AStatus: myMsg.AnimatorStatus_MOVE,
+					Speed: player.GetSpeed(),
 				}
-				r.chan_Char <- ch
+				r.chan_move <- mv
+
 			} else {
-				ch := &myMsg.CharInfo{
-					Username: player.GetID(),
-					Index:    nil,
-					AStatus:  myMsg.AnimatorStatus_STOPMOVE,
+				mv := &myMsg.MoveInfo{
+					Username: move.username,
+					Des: &myMsg.LocationInfo{
+						X: pos.x,
+						Y: pos.y,
+					},
+					V: &myMsg.LocationInfo{
+						X: 0,
+						Y: 0,
+					},
+					Speed: 0,
 				}
-				r.chan_Char <- ch
+				r.chan_move <- mv
 			}
 		default:
 			break STEP
@@ -209,22 +323,20 @@ STEP:
 	}
 }
 
-func (r *Room) Update() {
-	//todo 向客户端同步信息
+func (r *Room) MoveUpdate() {
 	//保存chan
-	chan_char := r.chan_Char
-
 	msg := &myMsg.MsgFromService{
 		Scene: NewMsgScene(),
+		FNO:   r.FNO,
 	}
 	changed := false
 
 	//处理角色数据
 	for {
-		if len(chan_char) > 0 {
+		if len(r.chan_move) > 0 {
 			changed = true
-			ch := <-chan_char
-			msg.Scene.Chars = append(msg.Scene.Chars, ch)
+			ch := <-r.chan_move
+			msg.Scene.Moves = append(msg.Scene.Moves, ch)
 		} else {
 			break
 		}
@@ -239,7 +351,36 @@ func (r *Room) Update() {
 	for _, player := range r.taskWithName {
 		player.tcpTask.SendMsg(bytes)
 	}
-	fmt.Println(msg.Scene.Chars[0].Index)
+}
+
+func (this *Room) Update() {
+	//保存chan
+	msg := &myMsg.MsgFromService{
+		Scene: NewMsgScene(),
+		FNO:   this.FNO,
+	}
+	changed := false
+
+	//处理角色数据
+	for {
+		if len(this.chan_Char) > 0 {
+			changed = true
+			ch := <-this.chan_Char
+			msg.Scene.Chars = append(msg.Scene.Chars, ch)
+		} else {
+			break
+		}
+	}
+	if !changed {
+		return
+	}
+	bytes, _ := proto.Marshal(msg)
+
+	bytes = AddHeader(bytes)
+	//time.Sleep(time.Millisecond * 100)
+	for _, player := range this.taskWithName {
+		player.tcpTask.SendMsg(bytes)
+	}
 
 }
 

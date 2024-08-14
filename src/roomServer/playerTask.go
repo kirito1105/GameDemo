@@ -3,6 +3,7 @@ package roomServer
 import (
 	"encoding/base64"
 	"fmt"
+	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/proto"
 	"myGameDemo/myMsg"
 	"myGameDemo/mynet"
@@ -22,15 +23,18 @@ func (p *PlayerTask) ParseMsg(data []byte) bool {
 	var msg myMsg.MsgFromClient
 	_ = proto.Unmarshal(data, &msg)
 	//fmt.Println(msg.GetAuthentication().GetUsername())
-
+	logrus.Trace("[TCP]收到消息:", &msg)
 	//验证身份
 	if !p.isChecked && msg.GetCmd() == myMsg.Cmd_Authentication {
 		decoded, _ := base64.StdEncoding.DecodeString(msg.GetAuthentication().GetToken())
-		fmt.Println(msg)
 		a := CheckToken(decoded, msg.GetAuthentication().GetUsername(), msg.GetAuthentication().GetAddr(), msg.GetAuthentication().GetRoomId())
 		if a {
 			p.username = msg.GetAuthentication().GetUsername()
 			p.isChecked = true
+
+			mm := myMsg.MsgFromService{FNO: p.inRoom.FNO}
+			ss, _ := proto.Marshal(&mm)
+			p.tcpTask.SendMsg(AddHeader(ss))
 
 			p.inRoom.PlayerIn(p)
 			fmt.Println(msg.GetAuthentication().GetUsername(), "验证成功")
@@ -41,8 +45,8 @@ func (p *PlayerTask) ParseMsg(data []byte) bool {
 		}
 
 		scene := p.inRoom.GetInitInfo(p.username)
-
 		m := myMsg.MsgFromService{
+			FNO:   p.inRoom.FNO,
 			Scene: scene,
 		}
 		bytes, _ := proto.Marshal(&m)
@@ -54,6 +58,9 @@ func (p *PlayerTask) ParseMsg(data []byte) bool {
 		return false
 	}
 
+	p.inRoom.inactive.Remove(p.username)
+	p.inRoom.pinged.Remove(p.username)
+
 	//移动
 	if msg.GetCmd() == myMsg.Cmd_Move {
 		move := &PlayerMove{
@@ -63,8 +70,9 @@ func (p *PlayerTask) ParseMsg(data []byte) bool {
 				y: msg.GetMove().GetY(),
 			},
 		}
-		fmt.Println(msg.Move)
+		p.inRoom.mutex_PlayerMove.Lock()
 		p.inRoom.chan_PlayerMove <- move
+		p.inRoom.mutex_PlayerMove.Unlock()
 	}
 
 	//停止移动
@@ -73,7 +81,10 @@ func (p *PlayerTask) ParseMsg(data []byte) bool {
 			username: p.username,
 			velocity: nil,
 		}
+		p.inRoom.mutex_PlayerMove.Lock()
 		p.inRoom.chan_PlayerMove <- move
+		p.inRoom.mutex_PlayerMove.Unlock()
+
 	}
 
 	//TODO implement
@@ -94,23 +105,32 @@ func (this *PlayerTask) Start() {
 	this.tcpTask.Start()
 }
 
+func (this *PlayerTask) Close() {
+	//todo
+
+}
+
 // 玩家局内信息
 type Player struct {
 	ObjBase
-	Asta   myMsg.AnimatorStatus
-	Online bool
+	username string
+	Asta     myMsg.AnimatorStatus
+	Online   bool
 }
 
 func (this *Player) GetStatus() int32 {
 	return int32(this.Asta)
 }
 
-func NewPlayer(id string, pos Vector2) *Player {
+func NewPlayer(username string, pos Vector2) *Player {
 	p := new(Player)
-	p.SetID(id)
+	p.ObjType = ObjType{form: myMsg.Form_PLAYER, subForm: myMsg.SubForm_PLAYER_01}
+	p.username = username
 	p.SetHp(100)
 	p.SetPos(pos)
-	p.SetSpeed(4.0)
+	p.SetSpeedBase(4.0)
+	p.bufManger = NewSkillStatusManager()
+	p.bufManger.initOwner(p)
 	return p
 }
 

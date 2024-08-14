@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/sirupsen/logrus"
 	"myGameDemo/roomServer"
 )
 
@@ -23,6 +24,7 @@ func main() {
 	//}
 	//data := *(*[]byte)(unsafe.Pointer(simSlice))
 	//fmt.Println(data)
+	logrus.SetLevel(logrus.DebugLevel)
 	roomServer.GetRoomServer().Run("localhost", 2005)
 
 }

@@ -4,6 +4,9 @@ import (
 	"context"
 	"crypto/rsa"
 	"encoding/json"
+	"fmt"
+	"github.com/sirupsen/logrus"
+	"io"
 	"myGameDemo/myRPC"
 	"myGameDemo/tokenRSA"
 	"net/http"
@@ -13,6 +16,23 @@ import (
 	"sync"
 	"time"
 )
+
+func init() {
+	filename := "./logs/roomServer.log"
+	logfile, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0766)
+	if err != nil {
+		fmt.Printf("[日志] 初始化失败", err)
+		return
+	}
+	multiWriter := io.MultiWriter(os.Stdout, logfile)
+	logrus.SetFormatter(&logrus.TextFormatter{
+		ForceQuote:      true,                  //键值对加引号
+		TimestampFormat: "2006-01-02 15:04:05", //时间格式
+		FullTimestamp:   true,
+	})
+	logrus.SetOutput(multiWriter)
+	logrus.Info("[日志]初始化完成")
+}
 
 type RoomServer struct {
 }
