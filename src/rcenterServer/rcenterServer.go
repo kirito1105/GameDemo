@@ -62,8 +62,10 @@ func Run() {
 	go func() {
 		GetLogicRPC().server()
 	}()
-	err := http.ListenAndServe("127.0.0.1:5050", nil)
+
+	err := http.ListenAndServe("127.0.0.1:5055", nil)
 	if err != nil {
+		fmt.Println(err)
 		return
 	}
 }

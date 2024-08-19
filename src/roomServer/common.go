@@ -24,10 +24,10 @@ var once11 sync.Once
 func GetList() *[]ObjNode {
 	once11.Do(func() {
 		objlist = &[]ObjNode{
-			ObjNode{ObjType{myMsg.Form_TREE, myMsg.SubForm_Tree_01}, "tree", 300},
-			ObjNode{ObjType{myMsg.Form_BUSH, myMsg.SubForm_Berry_bush_01}, "BerryBush", 100},
-			ObjNode{ObjType{myMsg.Form_BUSH, myMsg.SubForm_Berry_bush_02}, "TropicalBerryBush", 50},
-			ObjNode{ObjType{myMsg.Form_BUSH, myMsg.SubForm_Berry_bush_03}, "JuicyBerryBush", 50},
+			{ObjType{myMsg.Form_TREE, myMsg.SubForm_Tree_01}, "tree", 100},
+			{ObjType{myMsg.Form_BUSH, myMsg.SubForm_Berry_bush_01}, "BerryBush", 20},
+			{ObjType{myMsg.Form_BUSH, myMsg.SubForm_Berry_bush_02}, "TropicalBerryBush", 10},
+			{ObjType{myMsg.Form_BUSH, myMsg.SubForm_Berry_bush_03}, "JuicyBerryBush", 10},
 		}
 	})
 	return objlist
@@ -59,6 +59,12 @@ func (v *Vector2) MultiplyNum(num float32) *Vector2 {
 	return &Vector2{v.x * num, v.y * num}
 }
 
+func (v *Vector2) innerMultiply(vector2 Vector2) float32 {
+	return v.x*vector2.x + v.y*vector2.y
+}
+func (v *Vector2) magnitude() float32 {
+	return float32(math.Sqrt(float64(v.x*v.x + v.y*v.y)))
+}
 func (v *Vector2) toPoint() *Point {
 	x := int(v.x * 100)
 	y := int(v.y * 100)
@@ -67,7 +73,7 @@ func (v *Vector2) toPoint() *Point {
 
 func (v *Vector2) CanSee(vector2 Vector2) bool {
 	point1 := v.toPoint()
-	point2 := v.toPoint()
+	point2 := vector2.toPoint()
 	if math.Abs(float64(point1.X-point2.X)) > float64(vision) {
 		return false
 	}

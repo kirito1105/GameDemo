@@ -5,10 +5,10 @@ const MAX_SKILLSTATUS = 1024
 type SkillStatus int
 
 const (
-	SKILL_STATUS_TEMP      SkillStatus = iota // 临时性的
-	SKILL_STATUS_TICK                         // 每秒执行状态
-	SKILL_STATUS_TIME                         // 时效状态
-	SKILL_STATUS_PASSIVITY                    // 永久被动
+	SKILL_STATUS_TEMP      SkillStatus = iota + 1 // 临时性的
+	SKILL_STATUS_TICK                             // 每秒执行状态
+	SKILL_STATUS_TIME                             // 时效状态
+	SKILL_STATUS_PASSIVITY                        // 永久被动
 
 )
 
@@ -23,7 +23,6 @@ const (
 )
 
 type SkillEle struct {
-	SkillExId  int64     //技能实例id
 	eleId      int16     //buf ID
 	value      int32     //技能影响的数值
 	byStep     SkillStep // 状态元素类型的当前状态
@@ -73,4 +72,65 @@ func SkillStatus_100(obj ObjBaseI, ele *SkillEle) SkillStatus {
 		obj.AddSpeed(-ele.value)
 	}
 	return SKILL_STATUS_TIME
+}
+
+// 无敌
+func SkillStatus_101(obj ObjBaseI, ele *SkillEle) SkillStatus {
+	if obj == nil {
+		return SKILL_STATUS_TIME
+	}
+	switch ele.byStep {
+	case SKILL_STEP_START:
+		fallthrough
+	case SKILL_STEP_RELOAD:
+		obj.InvincibleOn()
+	case SKILL_STEP_TIME:
+	case SKILL_STEP_STOP:
+		fallthrough
+	case SKILL_STEP_CLEAR:
+		obj.InvincibleOff()
+	}
+	return SKILL_STATUS_TIME
+}
+
+// 持续掉血 凋亡（后加buff顶掉之前的凋亡）
+func SkillStatus_200(obj ObjBaseI, ele *SkillEle) SkillStatus {
+	if obj == nil {
+		return SKILL_STATUS_TICK
+	}
+	switch ele.byStep {
+	case SKILL_STEP_START:
+		fallthrough
+	case SKILL_STEP_RELOAD:
+		fallthrough
+	case SKILL_STEP_TIME:
+		obj.AddHp(int(-ele.value))
+		return SKILL_STATUS_TICK
+	case SKILL_STEP_STOP:
+		fallthrough
+	case SKILL_STEP_CLEAR:
+
+	}
+	return 0
+}
+
+// 持续掉血 燃烧（后加buff刷新buff持续时间）
+func SkillStatus_201(obj ObjBaseI, ele *SkillEle) SkillStatus {
+	if obj == nil {
+		return SKILL_STATUS_TICK
+	}
+	switch ele.byStep {
+	case SKILL_STEP_START:
+		fallthrough
+	case SKILL_STEP_RELOAD:
+		fallthrough
+	case SKILL_STEP_TIME:
+		obj.AddHp(int(-ele.value))
+		return SKILL_STATUS_TICK
+	case SKILL_STEP_STOP:
+		fallthrough
+	case SKILL_STEP_CLEAR:
+
+	}
+	return 0
 }

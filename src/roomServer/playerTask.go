@@ -37,7 +37,7 @@ func (p *PlayerTask) ParseMsg(data []byte) bool {
 			p.tcpTask.SendMsg(AddHeader(ss))
 
 			p.inRoom.PlayerIn(p)
-			fmt.Println(msg.GetAuthentication().GetUsername(), "验证成功")
+			logrus.Debug("[TCP]", msg.GetAuthentication().GetUsername(), "验证成功")
 
 		} else {
 			fmt.Println(1)
@@ -77,18 +77,71 @@ func (p *PlayerTask) ParseMsg(data []byte) bool {
 
 	//停止移动
 	if msg.GetCmd() == myMsg.Cmd_StopMove {
-		move := &PlayerMove{
-			username: p.username,
-			velocity: nil,
+		//move := &PlayerMove{
+		//	username: p.username,
+		//	velocity: nil,
+		//}
+		//p.inRoom.mutex_PlayerMove.Lock()
+		//p.inRoom.chan_PlayerMove <- move
+		//p.inRoom.mutex_PlayerMove.Unlock()
+		p.inRoom.mutex_PlayerStatus.Lock()
+		defer p.inRoom.mutex_PlayerStatus.Unlock()
+		if val, ok := p.inRoom.PlayerStatusUp[p.username]; !ok {
+			ch := &myMsg.CharInfo{
+				Username: p.username,
+				Index: &myMsg.LocationInfo{
+					X: p.GetPlayer().GetPos().x,
+					Y: p.GetPlayer().GetPos().y,
+				},
+				Face: &myMsg.LocationInfo{
+					X: p.GetPlayer().GetFace().x,
+					Y: p.GetPlayer().GetFace().y,
+				},
+				AStatus: myMsg.AnimatorStatus_STOPMOVE,
+			}
+			p.inRoom.PlayerStatusUp[p.username] = ch
+		} else {
+			val.AStatus = myMsg.AnimatorStatus_STOPMOVE
+			val.Face = &myMsg.LocationInfo{
+				X: p.GetPlayer().GetFace().x,
+				Y: p.GetPlayer().GetFace().y,
+			}
+			val.Index = &myMsg.LocationInfo{
+				X: p.GetPlayer().GetPos().x,
+				Y: p.GetPlayer().GetPos().y,
+			}
 		}
-		p.inRoom.mutex_PlayerMove.Lock()
-		p.inRoom.chan_PlayerMove <- move
-		p.inRoom.mutex_PlayerMove.Unlock()
 
+	}
+
+	//技能
+	if msg.GetCmd() == myMsg.Cmd_Attack {
+
+		sr := &SkillMsg{
+			username: p.username,
+			cmd: StdUserAttackCMD{
+				direction: Vector2{
+					msg.SkillRelease.Des.X,
+					msg.SkillRelease.Des.Y,
+				},
+				location: Vector2{
+					msg.SkillRelease.Pos.X,
+					msg.SkillRelease.Pos.Y,
+				},
+			},
+			skillID: msg.SkillRelease.SkillID,
+		}
+		p.inRoom.mutex_Skill.Lock()
+		p.inRoom.chan_Skill <- sr
+		p.inRoom.mutex_Skill.Unlock()
 	}
 
 	//TODO implement
 	return true
+}
+
+func (p *PlayerTask) GetPlayer() *Player {
+	return p.inRoom.players[p.username]
 }
 
 func NewPlayerTask(conn *net.TCPConn, r *Room) *PlayerTask {
@@ -107,7 +160,7 @@ func (this *PlayerTask) Start() {
 
 func (this *PlayerTask) Close() {
 	//todo
-
+	this.tcpTask.Close()
 }
 
 // 玩家局内信息

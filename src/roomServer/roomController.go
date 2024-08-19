@@ -71,9 +71,10 @@ func (rc *RoomController) GetRoom(id string) *Room {
 	return rc.RoomwithId[id]
 }
 
-func (rc *RoomController) PlayerOffline(username string, id string) {
+func (rc *RoomController) PlayerOffline(username string) {
 	rc.mutex.Lock()
 	defer rc.mutex.Unlock()
+	delete(rc.players, username)
 	//todo
 }
 

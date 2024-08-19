@@ -9,6 +9,7 @@ message Block{
   BlockType type = 1;
   LocationInfo index = 2;
   repeated Obj list = 3;
+  int32 id = 4;
 }
 
 enum BlockType{
@@ -33,12 +34,20 @@ enum Cmd{
   Authentication = 1;
   Move = 2;
   StopMove = 3;
+  Attack = 4;
 }
 
 message MsgFromClient{
   Cmd cmd = 1;
   MsgAuthentication Authentication = 2;
   MsgMove move = 3;
+  MsgSkillRelease skillRelease = 4;
+}
+
+message MsgSkillRelease{
+  LocationInfo pos = 1; //角色位置
+  int32 SkillID = 2; // 技能id
+  LocationInfo des = 3; // 释放方向或者中心点或者目标
 }
 
 message MsgMove{
@@ -97,12 +106,14 @@ enum Form{
   PLAYER = 0;
   TREE = 1;
   BUSH = 2;
+  MONSTER = 3;
 }
 
 enum SubForm{
-    Tree_01 = 0;
-    Berry_bush_01 = 1;
-    Berry_bush_02 = 2;
-    Berry_bush_03 = 3;
-    PLAYER_01 = 4;
+  Tree_01 = 0;
+  Berry_bush_01 = 1;
+  Berry_bush_02 = 2;
+  Berry_bush_03 = 3;
+  PLAYER_01 = 4;
+  PIG = 5;
 }

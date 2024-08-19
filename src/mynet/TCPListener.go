@@ -29,6 +29,9 @@ func (this *TCPListener) AcceptTCP() (*net.TCPConn, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	err = conn.SetNoDelay(true)
+	if err != nil {
+		return nil, err
+	}
 	return conn, nil
 }

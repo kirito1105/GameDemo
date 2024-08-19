@@ -1,0 +1,177 @@
+package roomServer
+
+import (
+	"github.com/sirupsen/logrus"
+	"math"
+)
+
+var SkillBaseList []*SkillBase
+
+const MAX_SKILL_SIZE = 1024
+
+func init() {
+	SkillBaseList = make([]*SkillBase, MAX_SKILL_SIZE)
+	//平A
+	SkillBaseList[1] = &SkillBase{
+		MaxLevel: 0,
+		Damages:  []int16{100},
+		Target:   SKILL_TARGET_TREE | SKILL_TARGET_MONSTETR,
+		max:      1,
+		fun:      RangePoint,
+	}
+}
+
+type SkillBase struct {
+	MaxLevel  int16       //最大等级
+	Type      int32       //技能类型
+	Damages   []int16     //伤害列表
+	Buffs     []int16     //buf列表
+	BuffValue [][]int32   //buff数值
+	Target    SkillTarget //技能作用对象
+	max       float32
+	fun       func(target SkillTarget, cmd StdUserAttackCMD, max float32, atk ObjBaseI) []ObjBaseI //技能范围
+}
+
+func RangeLine(target SkillTarget, cmd StdUserAttackCMD, max float32, atk ObjBaseI) []ObjBaseI {
+	if atk == nil {
+		logrus.Error("[技能]无效的技能释放方")
+		return nil
+	}
+	list := make([]ObjBaseI, 0)
+	point := cmd.location.toPoint()
+
+	var x, y int
+
+	if cmd.direction.x > 0 {
+		x = 1
+	} else {
+		x = -1
+	}
+	if cmd.direction.y > 0 {
+		y = 1
+	} else {
+		y = -1
+	}
+
+	for _, o := range atk.GetRoom().GetWorld().GetBlock(point.BlockX, point.BlockY).Objs {
+		if !o.CheckTarget(target) {
+			continue
+		}
+		pos := o.GetPos()
+		newPos := pos.Add(*cmd.location.MultiplyNum(-1))
+		line := newPos.innerMultiply(cmd.direction)
+		if line < 0 || line > max {
+			continue
+		}
+		r := math.Acos(float64(line / newPos.magnitude()))
+		sin := float32(math.Sin(r))
+		dis := newPos.magnitude() * sin
+		if dis > 1 {
+			continue
+		}
+		list = append(list, o)
+	}
+	for _, o := range atk.GetRoom().GetWorld().GetBlock(point.BlockX+x, point.BlockY).Objs {
+		if !o.CheckTarget(target) {
+			continue
+		}
+		pos := o.GetPos()
+		newPos := pos.Add(*cmd.location.MultiplyNum(-1))
+		line := newPos.innerMultiply(cmd.direction)
+		if line < 0 || line > max {
+			continue
+		}
+		r := math.Acos(float64(line / newPos.magnitude()))
+		sin := float32(math.Sin(r))
+		dis := newPos.magnitude() * sin
+		if dis > 1 {
+			continue
+		}
+		list = append(list, o)
+	}
+	for _, o := range atk.GetRoom().GetWorld().GetBlock(point.BlockX, point.BlockY+y).Objs {
+		if !o.CheckTarget(target) {
+			continue
+		}
+		pos := o.GetPos()
+		newPos := pos.Add(*cmd.location.MultiplyNum(-1))
+		line := newPos.innerMultiply(cmd.direction)
+		if line < 0 || line > max {
+			continue
+		}
+		r := math.Acos(float64(line / newPos.magnitude()))
+		sin := float32(math.Sin(r))
+		dis := newPos.magnitude() * sin
+		if dis > 1 {
+			continue
+		}
+		list = append(list, o)
+	}
+	for _, o := range atk.GetRoom().GetWorld().GetBlock(point.BlockX+x, point.BlockY+y).Objs {
+		if !o.CheckTarget(target) {
+			continue
+		}
+		pos := o.GetPos()
+		newPos := pos.Add(*cmd.location.MultiplyNum(-1))
+		line := newPos.innerMultiply(cmd.direction)
+		if line < 0 || line > max {
+			continue
+		}
+		r := math.Acos(float64(line / newPos.magnitude()))
+		sin := float32(math.Sin(r))
+		dis := newPos.magnitude() * sin
+		if dis > 1 {
+			continue
+		}
+		list = append(list, o)
+	}
+	return list
+}
+
+func RangeR(target SkillTarget, cmd StdUserAttackCMD, max float32, atk ObjBaseI) []ObjBaseI {
+	point := cmd.location.toPoint()
+	list := make([]ObjBaseI, 0)
+	for x := point.BlockX - 1; x <= point.BlockX+1; x++ {
+		for y := point.BlockY - 1; y <= point.BlockY+1; y++ {
+			for _, o := range atk.GetRoom().GetWorld().GetBlock(x, y).Objs {
+				if !o.CheckTarget(target) {
+					continue
+				}
+				pos := o.GetPos()
+				newPos := pos.Add(*cmd.location.MultiplyNum(-1))
+				line := newPos.magnitude()
+				if line < 0 || line > max {
+					continue
+				}
+				list = append(list, o)
+			}
+		}
+	}
+	return list
+}
+
+func RangePoint(target SkillTarget, cmd StdUserAttackCMD, max float32, atk ObjBaseI) []ObjBaseI {
+	point := cmd.location.toPoint()
+	var min ObjBaseI = nil
+	var num = max
+	for x := point.BlockX - 1; x <= point.BlockX+1; x++ {
+		for y := point.BlockY - 1; y <= point.BlockY+1; y++ {
+			for _, o := range atk.GetRoom().GetWorld().GetBlock(x, y).Objs {
+				if !o.CheckTarget(target) {
+					continue
+				}
+				pos := o.GetPos()
+				newPos := pos.Add(*cmd.location.MultiplyNum(-1))
+				line := newPos.magnitude()
+				if line < num && line > 0 {
+					num = line
+					min = o
+				}
+			}
+		}
+	}
+	if min == nil {
+		return nil
+	}
+	return []ObjBaseI{min}
+}

@@ -81,7 +81,7 @@ func CreateWorld(blocks [Size][Size]bool) *World {
 	return &w
 }
 
-func NewWorld() *World {
+func NewWorld(room *Room) *World {
 	w := BlockCreate{}
 	w.Init()
 	for i := 2; i < 6; i++ {
@@ -91,11 +91,11 @@ func NewWorld() *World {
 		w.Loop(0, 4)
 	}
 	world1 := CreateWorld(w.GetWorld())
-	world1.Init()
+	world1.Init(room)
 	return world1
 }
 
-func (this *World) Init() {
+func (this *World) Init(room *Room) {
 	var once sync.Once
 	for i := 0; i < Size; i++ {
 		for j := 0; j < Size; j++ {
@@ -121,6 +121,7 @@ func (this *World) Init() {
 
 							o := this.ObjManager.NewObj(rate.objType)
 							o.SetPos(*v)
+							o.SetRoom(room)
 
 							this.blocks[i][j].Objs = append(this.blocks[i][j].Objs, o)
 							this.num++

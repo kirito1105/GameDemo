@@ -24,7 +24,7 @@ func main() {
 	//}
 	//data := *(*[]byte)(unsafe.Pointer(simSlice))
 	//fmt.Println(data)
-	logrus.SetLevel(logrus.DebugLevel)
+	logrus.SetLevel(logrus.TraceLevel)
 	roomServer.GetRoomServer().Run("localhost", 2005)
 
 }
