@@ -40,13 +40,13 @@ func NewPoint(x int, y int) *Point {
 	return &p
 }
 
-func (p Point) ToUnity() (int, int) {
+func (p Point) ToUnity100() (int, int) {
 	x := p.X + p.GridX*PIONT_PER_GRID + p.BlockX*PIONT_PER_GRID*GRID_PER_BLOCK
 	y := p.Y + p.GridY*PIONT_PER_GRID + p.BlockY*PIONT_PER_GRID*GRID_PER_BLOCK
 	return x, y
 }
 func (p Point) ToVector() *Vector2 {
-	x, y := p.ToUnity()
+	x, y := p.ToUnity100()
 	return &Vector2{float32(x) / 100, float32(y) / 100}
 }
 
@@ -151,6 +151,22 @@ func (this *World) GetBlock(x int, y int) Block {
 
 func (this *World) GetSpawn() Point {
 	return *this.spawn
+}
+
+func (this *World) GetVectorInWorld(v Vector2) Vector2 {
+	if v.x < 0 {
+		v.x = 0
+	}
+	if v.y < 0 {
+		v.y = 0
+	}
+	if v.x > Size*GRID_PER_BLOCK {
+		v.x = Size * GRID_PER_BLOCK
+	}
+	if v.y > Size*GRID_PER_BLOCK {
+		v.y = Size * GRID_PER_BLOCK
+	}
+	return v
 }
 
 func (this *BlockCreate) Init() {

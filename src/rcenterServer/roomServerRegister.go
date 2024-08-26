@@ -1,6 +1,7 @@
 package rcenterServer
 
 import (
+	"context"
 	"fmt"
 	list "github.com/liyue201/gostl/ds/list/bidlist"
 	"myGameDemo/myRPC"
@@ -56,6 +57,36 @@ func (rc *RoomServerRegisterCenter) minRoomServe() myRPC.RoomRPCClient {
 		}
 	}
 	return cl
+}
+
+func (rc *RoomServerRegisterCenter) GetRoomList() (*myRPC.RoomInfoArray, error) {
+	arr := &myRPC.RoomInfoArray{
+		Rooms: make([]*myRPC.RoomInfoNode, 0),
+	}
+	for n := rc.roomServerList.FrontNode(); n != nil; n = n.Next() {
+		list, err := n.Value.Client.GetRoomList(context.Background(), &myRPC.Empty{})
+		if err != nil {
+			continue
+		}
+		for _, i := range list.Rooms {
+			i.Addr = n.Value.Addr
+		}
+		arr.Rooms = append(arr.Rooms, list.Rooms...)
+		if len(arr.Rooms) > 20 {
+			return arr, nil
+		}
+	}
+	return arr, nil
+}
+func (rc *RoomServerRegisterCenter) FindRoomWithAddr(addr string) myRPC.RoomRPCClient {
+	rc.mutex.Lock()
+	defer rc.mutex.Unlock()
+	for i := rc.roomServerList.FrontNode(); i != nil; i = i.Next() {
+		if i.Value.Addr == addr {
+			return i.Value.Client
+		}
+	}
+	return nil
 }
 
 var roomServerRegisterCenter *RoomServerRegisterCenter

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rsa"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"myGameDemo/myRPC"
 	"myGameDemo/tokenRSA"
@@ -39,6 +40,20 @@ func FindARoom(rsInfo *myRPC.GameRoomFindInfo) (*myRPC.RoomInfo, error) {
 	}
 	room.Token = GetToken(rsInfo.Username, room.RoomAddr, room.RoomId)
 	fmt.Println(room)
+	return room, nil
+}
+
+func EnterRoom(info *myRPC.RoomInfoNode) (*myRPC.RoomInfo, error) {
+	client := GetRoomServerRegisterCenter().FindRoomWithAddr(info.Addr)
+	if client == nil {
+		err := errors.New("没有对应服务器")
+		return nil, err
+	}
+	room, err := client.EnterRoom(context.Background(), info)
+	if err != nil {
+		return nil, err
+	}
+	room.Token = GetToken(info.Username, room.RoomAddr, room.RoomId)
 	return room, nil
 }
 

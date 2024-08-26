@@ -25,6 +25,8 @@ message RoomInfo{//查找到的房间信息
 message RoomInfoNode{
   string RoomId = 1;
   int64  PlayerNum = 2;
+  string Addr = 3;
+  string Username = 4;
 }
 
 message RoomInfoArray{
@@ -53,11 +55,14 @@ message Empty{
 service rCenterRPC {
   rpc CreateRoom(GameRoomFindInfo) returns (RoomInfo);//logic寻找合适的roomsever调用房间创建的信息
   rpc RoomServerHeart(RoomServerInfo) returns (Res);//roomServer向rc保活
+  rpc EnterRoom(RoomInfoNode) returns(RoomInfo); //进入列表中的房间
+  rpc GetRoomList(Empty) returns(RoomInfoArray);//获取房间列表
 }
 
 
 service roomRPC{
   rpc CreateRoom(GameRoomFindInfo) returns(RoomInfo);//根据用户信息返回创建房间并返房间信息
   rpc FindARoom(GameRoomFindInfo) returns(RoomInfo);//根据信息找到合适的房间
+  rpc EnterRoom(RoomInfoNode) returns(RoomInfo); //进入列表中的房间
   rpc GetRoomList(Empty) returns(RoomInfoArray);//获取房间列表
 }

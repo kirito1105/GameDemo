@@ -9,6 +9,8 @@ import (
 	"time"
 )
 
+const MAX_NUM = 4
+
 type playerInfoSum struct {
 	username string
 }
@@ -68,7 +70,11 @@ func (rc *RoomController) RemoveRoom(id string) {
 func (rc *RoomController) GetRoom(id string) *Room {
 	rc.mutex.RLock()
 	defer rc.mutex.RUnlock()
-	return rc.RoomwithId[id]
+	if val, ok := rc.RoomwithId[id]; ok {
+		return val
+	} else {
+		return nil
+	}
 }
 
 func (rc *RoomController) PlayerOffline(username string) {
@@ -135,4 +141,26 @@ func (this *RoomController) FindRooms(info *myRPC.GameRoomFindInfo, num int) []*
 	}
 	return list
 
+}
+
+func (rc *RoomController) GetRoomList() *myRPC.RoomInfoArray {
+	arr := &myRPC.RoomInfoArray{
+		Rooms: make([]*myRPC.RoomInfoNode, 0),
+	}
+	n := 0
+	for id, room := range rc.RoomwithId {
+		info := &myRPC.RoomInfoNode{
+			RoomId:    id,
+			PlayerNum: room.GetOnlineNum(),
+		}
+		if info.PlayerNum >= MAX_NUM {
+			continue
+		}
+		arr.Rooms = append(arr.Rooms, info)
+		n++
+		if n > 20 {
+			break
+		}
+	}
+	return arr
 }

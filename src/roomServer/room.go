@@ -5,6 +5,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/proto"
 	"myGameDemo/myMsg"
+	"myGameDemo/myRand"
 	"myGameDemo/mynet"
 	"net"
 	"sync"
@@ -15,7 +16,7 @@ type InterForPlayer interface {
 }
 
 const (
-	ft = 200 * time.Millisecond
+	ft = 100 * time.Millisecond
 )
 
 type Room struct {
@@ -23,6 +24,7 @@ type Room struct {
 	tcpListener  mynet.TCPListener      //tco
 	taskWithName map[string]*PlayerTask //player map
 	players      map[string]*Player
+	monsters     map[int32]*Monster
 	world0       *World
 
 	//活跃检测
@@ -41,8 +43,11 @@ type Room struct {
 	mutex_PlayerStatus sync.Mutex
 
 	//脏数据
-	chan_Char chan *myMsg.CharInfo
-	chan_move chan *myMsg.MoveInfo
+	chan_move    chan *myMsg.MoveInfo
+	chan_tree    chan *myMsg.TreeInfo
+	chan_delete  chan *myMsg.DeleteInfo
+	chan_monster chan *myMsg.MonsterInfo
+	chan_monMove chan *myMsg.MonsterMove
 }
 
 func NewRoom() *Room {
@@ -50,18 +55,22 @@ func NewRoom() *Room {
 		tcpListener:  mynet.TCPListener{},
 		taskWithName: make(map[string]*PlayerTask),
 		players:      make(map[string]*Player),
+		monsters:     make(map[int32]*Monster),
 		world0:       nil,
 
 		inactive: NewSet(),
 		pinged:   NewSet(),
 		FNO:      1,
 
-		chan_PlayerMove: make(chan *PlayerMove, 10),
+		chan_PlayerMove: make(chan *PlayerMove, 20),
 		chan_Skill:      make(chan *SkillMsg, 10),
 		PlayerStatusUp:  make(map[string]*myMsg.CharInfo),
 
-		chan_Char: make(chan *myMsg.CharInfo, 10),
-		chan_move: make(chan *myMsg.MoveInfo, 10),
+		chan_move:    make(chan *myMsg.MoveInfo, 50),
+		chan_tree:    make(chan *myMsg.TreeInfo, 10),
+		chan_delete:  make(chan *myMsg.DeleteInfo, 10),
+		chan_monster: make(chan *myMsg.MonsterInfo, 50),
+		chan_monMove: make(chan *myMsg.MonsterMove, 100),
 	}
 	go func() {
 		a := NewWorld(t)
@@ -78,18 +87,29 @@ func (this *Room) PlayerIn(p *PlayerTask) {
 			p.username,
 			*this.GetWorld().GetSpawn().ToVector(),
 		)
+		this.players[p.username].SetRoom(this)
 	}
-	new_player := &myMsg.CharInfo{
-		Username: p.username,
-		Index: &myMsg.LocationInfo{
-			X: this.players[p.username].GetPos().x,
-			Y: this.players[p.username].GetPos().y,
-		},
-	}
-
-	this.chan_Char <- new_player
-
+	play := this.players[p.username]
 	this.players[p.username].Online = true
+
+	this.mutex_PlayerStatus.Lock()
+	defer this.mutex_PlayerStatus.Unlock()
+	if val, ok := this.PlayerStatusUp[p.username]; ok {
+		val.AStatus = play.GetStatus()
+		val.Hp = int32(play.GetHp())
+	} else {
+		ch := &myMsg.CharInfo{}
+		ch.AStatus = play.GetStatus()
+		ch.Username = play.username
+		ch.Hp = int32(play.GetHp())
+		ch.Index = &myMsg.LocationInfo{
+			X: play.GetPos().x,
+			Y: play.GetPos().y,
+		}
+
+		this.PlayerStatusUp[play.username] = ch
+
+	}
 
 	GetRoomController().PlayerOnline(p)
 }
@@ -101,7 +121,15 @@ func (this *Room) PlayerOff(u string) {
 	this.taskWithName[u].Close()
 	delete(this.taskWithName, u)
 	this.players[u].Online = false
-	//todo 广播玩家离线消息
+
+	d := &myMsg.DeleteInfo{
+		Form:    myMsg.Form_PLAYER,
+		SubForm: myMsg.SubForm_PLAYER_01,
+		Id:      this.players[u].GetID(),
+		Name:    u,
+	}
+	this.chan_delete <- d
+
 	GetRoomController().PlayerOffline(u)
 }
 
@@ -118,8 +146,8 @@ func (this *Room) GetMsgBlockWithIndex(x int, y int) *myMsg.Block { //x,y为Bloc
 		v := i.GetPos()
 		f := i.GetObjType()
 		obj := &myMsg.Obj{
-			Form:    int32((f.form)),
-			Subform: int32((f.subForm)),
+			Form:    f.form,
+			Subform: f.subForm,
 			Index: &myMsg.LocationInfo{
 				X: v.x,
 				Y: v.y,
@@ -161,6 +189,8 @@ func (this *Room) GetInitInfo(username string) *myMsg.MsgScene {
 				X: p.GetPos().x,
 				Y: p.GetPos().y,
 			},
+			Hp:      int32(p.GetHp()),
+			AStatus: p.GetStatus(),
 		}
 		if p.username == username {
 			playInfo.IsUser = true
@@ -226,20 +256,25 @@ func (this *Room) Start() {
 			case <-ticker:
 				//t := time.Now().UnixMicro()
 				this.FNO = this.FNO + 1
+				this.MonsterLoop()
+				this.SkillLoop()
 				this.MoveLoop()
 				this.MoveUpdate()
 				this.Update()
 			//fmt.Println("一帧消耗了", time.Now().UnixMicro()-t)
 			case <-statusTicker:
 				for _, p := range this.players {
-					p.bufManger.timeTick()
+					if p.Online {
+						p.bufManger.timeTick()
+					}
 				}
+				this.world0.ObjManager.TimeTick()
 			}
 		}
 	}()
 	//活跃检测
 	go func() {
-		ticker := time.Tick(time.Second * 10)
+		ticker := time.Tick(time.Second * 1)
 		for {
 			select {
 			case <-ticker:
@@ -278,6 +313,76 @@ func (this *Room) Start() {
 	}()
 }
 
+func (this *Room) MonsterLoop() {
+	//生成怪物
+
+	if this.FNO > 100 && len(this.monsters) < 1 {
+		for _, p := range this.players {
+			if !p.Online {
+				continue
+			}
+			if myRand.Intn(100) < 5 {
+				pig := this.world0.ObjManager.NewObj(ObjType{form: myMsg.Form_MONSTER, subForm: myMsg.SubForm_PIG})
+				pig.SetRoom(this)
+				v := p.GetPos()
+				randv := Vector2{
+					x: float32(myRand.Intn(200)) / 10,
+					y: float32(myRand.Intn(200)) / 10,
+				}
+				new_v := v.Add(randv)
+				v = this.world0.GetVectorInWorld(*new_v)
+				point := v.toPoint()
+				if this.GetWorld().GetBlock(point.BlockX, point.BlockY).TypeOfBlock == myMsg.BlockType_Null {
+					continue
+				}
+				pig.SetPos(v)
+				pig.SendToNine()
+				logrus.Debug("[房间]生成怪物")
+				logrus.Debug(p.username)
+				this.monsters[pig.GetID()] = pig.(*Monster)
+			}
+		}
+	}
+
+	//运行状态机
+	for _, m := range this.monsters {
+		m.OnExecute()
+	}
+}
+
+func (this *Room) SkillLoop() {
+	this.mutex_Skill.Lock()
+	defer this.mutex_Skill.Unlock()
+SkillStep:
+	for {
+		select {
+		case sk := <-this.chan_Skill:
+			logrus.Debug(sk)
+			var skill *Skill
+			if sk.skillID == 0 {
+				skill = this.players[sk.username].skillManager.GetSkillByID(this.players[sk.username].GetAttackID())
+			} else {
+				skill = this.players[sk.username].skillManager.GetSkillByID(this.players[sk.username].GetSkillID(int(sk.skillID)))
+			}
+
+			if skill == nil {
+				logrus.Error("[技能]无效技能")
+				continue
+			}
+			if sk.step == SKILL_START {
+				skill.SkillActionStart(&sk.cmd, this.players[sk.username])
+
+			} else if sk.step == SKILL_DAMAGE {
+				skill.SkillActionDamage(&sk.cmd, this.players[sk.username])
+			} else if sk.step == SKILL_ANIMATION {
+				skill.SkillActionEnd(&sk.cmd, this.players[sk.username])
+			}
+		default:
+			break SkillStep
+		}
+	}
+}
+
 func (this *Room) MoveLoop() {
 	this.mutex_PlayerMove.Lock()
 STEP:
@@ -287,7 +392,25 @@ STEP:
 			player := this.players[move.username]
 			pos := player.GetPos()
 			oldPoint := pos.toPoint()
+			if player.IsImmobilize() {
+				player.RemoveStatus(ASTATUS_MOVE)
+				mv := &myMsg.MoveInfo{
+					Username: move.username,
+					Des: &myMsg.LocationInfo{
+						X: pos.x,
+						Y: pos.y,
+					},
+					V: &myMsg.LocationInfo{
+						X: 0,
+						Y: 0,
+					},
+					Speed: 0,
+				}
+				this.chan_move <- mv
+				continue
+			}
 			if move.velocity != nil {
+				player.AddStatus(ASTATUS_MOVE)
 				newPos := pos.Add(*move.velocity.MultiplyNum(player.GetSpeed() * float32(ft) / float32(time.Second)))
 				p := newPos.toPoint()
 				if this.world0.GetBlock(p.BlockX, p.BlockY).TypeOfBlock != myMsg.BlockType_Ground {
@@ -322,11 +445,12 @@ STEP:
 						X: move.velocity.x,
 						Y: move.velocity.y,
 					},
-					Speed: player.GetSpeed(),
+					Speed: player.GetSpeed() * move.velocity.magnitude(),
 				}
 				this.chan_move <- mv
 
 			} else {
+				player.RemoveStatus(ASTATUS_MOVE)
 				mv := &myMsg.MoveInfo{
 					Username: move.username,
 					Des: &myMsg.LocationInfo{
@@ -387,16 +511,6 @@ func (this *Room) Update() {
 	}
 	changed := false
 
-	//处理角色数据
-	for {
-		if len(this.chan_Char) > 0 {
-			changed = true
-			ch := <-this.chan_Char
-			msg.Scene.Chars = append(msg.Scene.Chars, ch)
-		} else {
-			break
-		}
-	}
 	this.mutex_PlayerStatus.Lock()
 	for _, v := range this.PlayerStatusUp {
 		changed = true
@@ -404,6 +518,55 @@ func (this *Room) Update() {
 	}
 	this.PlayerStatusUp = make(map[string]*myMsg.CharInfo)
 	this.mutex_PlayerStatus.Unlock()
+
+	//tree
+CHAN_TREE:
+	for {
+		select {
+		case t := <-this.chan_tree:
+			msg.Scene.Trees = append(msg.Scene.Trees, t)
+			changed = true
+		default:
+			break CHAN_TREE
+		}
+	}
+
+	//delete
+CHAN_Delete:
+	for {
+		select {
+		case t := <-this.chan_delete:
+			msg.Scene.Deletes = append(msg.Scene.Deletes, t)
+			changed = true
+		default:
+			break CHAN_Delete
+		}
+	}
+
+	//Monster
+CHAN_Monster:
+	for {
+		select {
+		case t := <-this.chan_monster:
+			msg.Scene.Monsters = append(msg.Scene.Monsters, t)
+			changed = true
+		default:
+			break CHAN_Monster
+		}
+	}
+
+	//MonsterMov
+CHAN_MonsterMove:
+	for {
+		select {
+		case t := <-this.chan_monMove:
+			msg.Scene.MonsterMove = append(msg.Scene.MonsterMove, t)
+			changed = true
+		default:
+			break CHAN_MonsterMove
+		}
+	}
+
 	if !changed {
 		return
 	}
@@ -433,6 +596,10 @@ func (this *Room) GetMyWorld(x int, y int) *Block {
 func (this *Room) GetOnlineList() {
 	//todo
 	return
+}
+
+func (this *Room) GetOnlineNum() int64 {
+	return int64(len(this.taskWithName))
 }
 
 func (this *Room) CheckMove(old Point, new Point, username string) bool {
@@ -467,4 +634,5 @@ type SkillMsg struct {
 	username string
 	cmd      StdUserAttackCMD
 	skillID  int32
+	step     int8
 }

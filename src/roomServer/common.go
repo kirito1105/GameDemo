@@ -25,9 +25,9 @@ func GetList() *[]ObjNode {
 	once11.Do(func() {
 		objlist = &[]ObjNode{
 			{ObjType{myMsg.Form_TREE, myMsg.SubForm_Tree_01}, "tree", 100},
-			{ObjType{myMsg.Form_BUSH, myMsg.SubForm_Berry_bush_01}, "BerryBush", 20},
-			{ObjType{myMsg.Form_BUSH, myMsg.SubForm_Berry_bush_02}, "TropicalBerryBush", 10},
-			{ObjType{myMsg.Form_BUSH, myMsg.SubForm_Berry_bush_03}, "JuicyBerryBush", 10},
+			//{ObjType{myMsg.Form_BUSH, myMsg.SubForm_Berry_bush_01}, "BerryBush", 20},
+			//{ObjType{myMsg.Form_BUSH, myMsg.SubForm_Berry_bush_02}, "TropicalBerryBush", 10},
+			//{ObjType{myMsg.Form_BUSH, myMsg.SubForm_Berry_bush_03}, "JuicyBerryBush", 10},
 		}
 	})
 	return objlist

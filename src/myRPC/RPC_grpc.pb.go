@@ -24,6 +24,8 @@ const _ = grpc.SupportPackageIsVersion7
 type RCenterRPCClient interface {
 	CreateRoom(ctx context.Context, in *GameRoomFindInfo, opts ...grpc.CallOption) (*RoomInfo, error)
 	RoomServerHeart(ctx context.Context, in *RoomServerInfo, opts ...grpc.CallOption) (*Res, error)
+	EnterRoom(ctx context.Context, in *RoomInfoNode, opts ...grpc.CallOption) (*RoomInfo, error)
+	GetRoomList(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*RoomInfoArray, error)
 }
 
 type rCenterRPCClient struct {
@@ -52,12 +54,32 @@ func (c *rCenterRPCClient) RoomServerHeart(ctx context.Context, in *RoomServerIn
 	return out, nil
 }
 
+func (c *rCenterRPCClient) EnterRoom(ctx context.Context, in *RoomInfoNode, opts ...grpc.CallOption) (*RoomInfo, error) {
+	out := new(RoomInfo)
+	err := c.cc.Invoke(ctx, "/myRPC.rCenterRPC/EnterRoom", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *rCenterRPCClient) GetRoomList(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*RoomInfoArray, error) {
+	out := new(RoomInfoArray)
+	err := c.cc.Invoke(ctx, "/myRPC.rCenterRPC/GetRoomList", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // RCenterRPCServer is the server API for RCenterRPC service.
 // All implementations must embed UnimplementedRCenterRPCServer
 // for forward compatibility
 type RCenterRPCServer interface {
 	CreateRoom(context.Context, *GameRoomFindInfo) (*RoomInfo, error)
 	RoomServerHeart(context.Context, *RoomServerInfo) (*Res, error)
+	EnterRoom(context.Context, *RoomInfoNode) (*RoomInfo, error)
+	GetRoomList(context.Context, *Empty) (*RoomInfoArray, error)
 	mustEmbedUnimplementedRCenterRPCServer()
 }
 
@@ -70,6 +92,12 @@ func (UnimplementedRCenterRPCServer) CreateRoom(context.Context, *GameRoomFindIn
 }
 func (UnimplementedRCenterRPCServer) RoomServerHeart(context.Context, *RoomServerInfo) (*Res, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RoomServerHeart not implemented")
+}
+func (UnimplementedRCenterRPCServer) EnterRoom(context.Context, *RoomInfoNode) (*RoomInfo, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method EnterRoom not implemented")
+}
+func (UnimplementedRCenterRPCServer) GetRoomList(context.Context, *Empty) (*RoomInfoArray, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetRoomList not implemented")
 }
 func (UnimplementedRCenterRPCServer) mustEmbedUnimplementedRCenterRPCServer() {}
 
@@ -120,6 +148,42 @@ func _RCenterRPC_RoomServerHeart_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RCenterRPC_EnterRoom_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RoomInfoNode)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RCenterRPCServer).EnterRoom(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/myRPC.rCenterRPC/EnterRoom",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RCenterRPCServer).EnterRoom(ctx, req.(*RoomInfoNode))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RCenterRPC_GetRoomList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RCenterRPCServer).GetRoomList(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/myRPC.rCenterRPC/GetRoomList",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RCenterRPCServer).GetRoomList(ctx, req.(*Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // RCenterRPC_ServiceDesc is the grpc.ServiceDesc for RCenterRPC service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -135,6 +199,14 @@ var RCenterRPC_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "RoomServerHeart",
 			Handler:    _RCenterRPC_RoomServerHeart_Handler,
 		},
+		{
+			MethodName: "EnterRoom",
+			Handler:    _RCenterRPC_EnterRoom_Handler,
+		},
+		{
+			MethodName: "GetRoomList",
+			Handler:    _RCenterRPC_GetRoomList_Handler,
+		},
 	},
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "RPC.proto",
@@ -146,6 +218,7 @@ var RCenterRPC_ServiceDesc = grpc.ServiceDesc{
 type RoomRPCClient interface {
 	CreateRoom(ctx context.Context, in *GameRoomFindInfo, opts ...grpc.CallOption) (*RoomInfo, error)
 	FindARoom(ctx context.Context, in *GameRoomFindInfo, opts ...grpc.CallOption) (*RoomInfo, error)
+	EnterRoom(ctx context.Context, in *RoomInfoNode, opts ...grpc.CallOption) (*RoomInfo, error)
 	GetRoomList(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*RoomInfoArray, error)
 }
 
@@ -175,6 +248,15 @@ func (c *roomRPCClient) FindARoom(ctx context.Context, in *GameRoomFindInfo, opt
 	return out, nil
 }
 
+func (c *roomRPCClient) EnterRoom(ctx context.Context, in *RoomInfoNode, opts ...grpc.CallOption) (*RoomInfo, error) {
+	out := new(RoomInfo)
+	err := c.cc.Invoke(ctx, "/myRPC.roomRPC/EnterRoom", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *roomRPCClient) GetRoomList(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*RoomInfoArray, error) {
 	out := new(RoomInfoArray)
 	err := c.cc.Invoke(ctx, "/myRPC.roomRPC/GetRoomList", in, out, opts...)
@@ -190,6 +272,7 @@ func (c *roomRPCClient) GetRoomList(ctx context.Context, in *Empty, opts ...grpc
 type RoomRPCServer interface {
 	CreateRoom(context.Context, *GameRoomFindInfo) (*RoomInfo, error)
 	FindARoom(context.Context, *GameRoomFindInfo) (*RoomInfo, error)
+	EnterRoom(context.Context, *RoomInfoNode) (*RoomInfo, error)
 	GetRoomList(context.Context, *Empty) (*RoomInfoArray, error)
 	mustEmbedUnimplementedRoomRPCServer()
 }
@@ -203,6 +286,9 @@ func (UnimplementedRoomRPCServer) CreateRoom(context.Context, *GameRoomFindInfo)
 }
 func (UnimplementedRoomRPCServer) FindARoom(context.Context, *GameRoomFindInfo) (*RoomInfo, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method FindARoom not implemented")
+}
+func (UnimplementedRoomRPCServer) EnterRoom(context.Context, *RoomInfoNode) (*RoomInfo, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method EnterRoom not implemented")
 }
 func (UnimplementedRoomRPCServer) GetRoomList(context.Context, *Empty) (*RoomInfoArray, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetRoomList not implemented")
@@ -256,6 +342,24 @@ func _RoomRPC_FindARoom_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RoomRPC_EnterRoom_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RoomInfoNode)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RoomRPCServer).EnterRoom(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/myRPC.roomRPC/EnterRoom",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RoomRPCServer).EnterRoom(ctx, req.(*RoomInfoNode))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _RoomRPC_GetRoomList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(Empty)
 	if err := dec(in); err != nil {
@@ -288,6 +392,10 @@ var RoomRPC_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "FindARoom",
 			Handler:    _RoomRPC_FindARoom_Handler,
+		},
+		{
+			MethodName: "EnterRoom",
+			Handler:    _RoomRPC_EnterRoom_Handler,
 		},
 		{
 			MethodName: "GetRoomList",

@@ -19,7 +19,10 @@ type TreeObj struct {
 }
 
 func NewTree() *TreeObj {
-	return &TreeObj{}
+	t := &TreeObj{}
+	t.target = SKILL_TARGET_TREE
+	t.BuffMaInit()
+	return t
 }
 
 type BushObj struct {
@@ -27,17 +30,10 @@ type BushObj struct {
 }
 
 func NewBush() *BushObj {
-	return &BushObj{}
-}
-
-type MonsterObj struct {
-	ObjBase
-}
-
-func NewMonsterObj() *MonsterObj {
-	m := &MonsterObj{}
-	m.Init()
-	return m
+	b := &BushObj{}
+	b.target = SKILL_TARGET_TREE
+	b.BuffMaInit()
+	return b
 }
 
 type ObjectManager struct {
@@ -48,10 +44,13 @@ type ObjectManager struct {
 }
 
 func NewObjManager() *ObjectManager {
-	return &ObjectManager{
+	m := &ObjectManager{
 		TreeList: make(map[int32]ObjBaseI),
 		BushList: make(map[int32]ObjBaseI),
 	}
+	m.AllID.num = 1000
+	return m
+
 }
 
 func (this *ObjectManager) NewObj(t ObjType) ObjBaseI {
@@ -62,16 +61,64 @@ func (this *ObjectManager) NewObj(t ObjType) ObjBaseI {
 		r = NewTree()
 		r.SetID(this.AllID.getId())
 		r.SetObjType(t)
-		r.BuffMaInit()
+		r.SetMaxHp(100)
+		r.SetHp(100)
 		this.TreeList[r.GetID()] = r
 	case myMsg.Form_BUSH:
 		r = NewBush()
 		r.SetID(this.AllID.getId())
+		r.SetMaxHp(100)
+		r.SetHp(100)
 		r.SetObjType(t)
-		r.BuffMaInit()
 		this.BushList[r.GetID()] = r
+	case myMsg.Form_MONSTER:
+		if t.subForm == myMsg.SubForm_PIG {
+			r = NewPig()
+			r.SetID(this.AllID.getId())
+			r.SetObjType(t)
+		}
+
 	default:
 		logrus.Error("[地图]未知类型")
 	}
 	return r
+}
+
+func (this *ObjectManager) TimeTick() {
+	for _, i := range this.TreeList {
+		i.GetStatusManager().timeTick()
+	}
+
+	for _, i := range this.BushList {
+		i.GetStatusManager().timeTick()
+	}
+}
+
+func (this *TreeObj) ComputeDamage(damage int) {
+	logrus.Debug("[技能]技能伤害为", damage)
+	n := (100.0 / float32(this.GetDef()+100))
+	t_damage := float32(damage) * n
+	logrus.Debug("[世界]树木收到的伤害为", t_damage)
+	logrus.Debug("[世界]树木的血量为", this.GetHp())
+	this.AddHp(int(-t_damage))
+	treeinfo := &myMsg.TreeInfo{
+		Id: this.GetID(),
+	}
+	if this.isDead() {
+		treeinfo.Status = ASTATUS_DEAD
+		pos := this.GetPos()
+		p := pos.toPoint()
+		var i int
+		var obj ObjBaseI
+		for i, obj = range this.GetRoom().GetWorld().GetBlock(p.BlockX, p.BlockY).Objs {
+			if this.GetID() == obj.GetID() {
+				break
+			}
+		}
+		this.GetRoom().GetWorld().blocks[p.BlockX][p.BlockY].Objs = append(this.GetRoom().GetWorld().blocks[p.BlockX][p.BlockY].Objs[:i], this.GetRoom().GetWorld().blocks[p.BlockX][p.BlockY].Objs[i+1:]...)
+	} else {
+		treeinfo.Status = ASTATUS_INJURED
+	}
+
+	this.GetRoom().chan_tree <- treeinfo
 }

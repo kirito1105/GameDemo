@@ -2,6 +2,7 @@ package roomServer
 
 import (
 	"context"
+	"errors"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"log"
@@ -25,6 +26,25 @@ func (R *RServer) FindARoom(ctx context.Context, info *myRPC.GameRoomFindInfo) (
 		return list[0], nil
 	}
 	return GetRoomController().RoomCreate(), nil
+}
+
+func (R *RServer) GetRoomList(ctx context.Context, info *myRPC.Empty) (*myRPC.RoomInfoArray, error) {
+	//TODO
+	return GetRoomController().GetRoomList(), nil
+}
+
+func (p *RServer) EnterRoom(ctx context.Context, Info *myRPC.RoomInfoNode) (*myRPC.RoomInfo, error) {
+	room := GetRoomController().GetRoom(Info.RoomId)
+	if room == nil {
+		err := errors.New("找不到对应房间")
+		return nil, err
+	}
+	roominfo := &myRPC.RoomInfo{
+		IsFind:   true,
+		RoomId:   room.RoomID,
+		RoomAddr: room.GetTCPAddr().String(),
+	}
+	return roominfo, nil
 }
 
 type RPCRoom struct {

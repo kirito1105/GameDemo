@@ -15,24 +15,39 @@ func init() {
 	SkillBaseList[1] = &SkillBase{
 		MaxLevel: 0,
 		Damages:  []int16{100},
+		cd:       1000,
 		Target:   SKILL_TARGET_TREE | SKILL_TARGET_MONSTETR,
-		max:      1,
+		max:      2,
+		fun:      RangePoint,
+	}
+
+	//怪物平a
+	SkillBaseList[101] = &SkillBase{
+		MaxLevel: 4,
+		Damages:  []int16{90, 100, 110, 120, 130},
+		cd:       5000,
+		Target:   SKILL_TARGET_USER,
+		max:      2,
 		fun:      RangePoint,
 	}
 }
 
 type SkillBase struct {
-	MaxLevel  int16       //最大等级
-	Type      int32       //技能类型
-	Damages   []int16     //伤害列表
-	Buffs     []int16     //buf列表
-	BuffValue [][]int32   //buff数值
-	Target    SkillTarget //技能作用对象
-	max       float32
-	fun       func(target SkillTarget, cmd StdUserAttackCMD, max float32, atk ObjBaseI) []ObjBaseI //技能范围
+	MaxLevel   int16   //最大等级
+	Type       int32   //技能类型
+	Damages    []int16 //伤害列表
+	Buffs      []int16 //buf列表
+	BuffTarget []SkillTarget
+	BuffValue  [][]int32   //buff数值
+	BuffTime   [][]int64   //buff时间
+	cd         int64       //cd
+	Target     SkillTarget //技能作用对象
+	Effect     int32       //特效状态id
+	max        float32
+	fun        func(target SkillTarget, cmd *StdUserAttackCMD, max float32, atk ObjBaseI) []ObjBaseI //技能范围
 }
 
-func RangeLine(target SkillTarget, cmd StdUserAttackCMD, max float32, atk ObjBaseI) []ObjBaseI {
+func RangeLine(target SkillTarget, cmd *StdUserAttackCMD, max float32, atk ObjBaseI) []ObjBaseI {
 	if atk == nil {
 		logrus.Error("[技能]无效的技能释放方")
 		return nil
@@ -128,7 +143,7 @@ func RangeLine(target SkillTarget, cmd StdUserAttackCMD, max float32, atk ObjBas
 	return list
 }
 
-func RangeR(target SkillTarget, cmd StdUserAttackCMD, max float32, atk ObjBaseI) []ObjBaseI {
+func RangeR(target SkillTarget, cmd *StdUserAttackCMD, max float32, atk ObjBaseI) []ObjBaseI {
 	point := cmd.location.toPoint()
 	list := make([]ObjBaseI, 0)
 	for x := point.BlockX - 1; x <= point.BlockX+1; x++ {
@@ -150,23 +165,51 @@ func RangeR(target SkillTarget, cmd StdUserAttackCMD, max float32, atk ObjBaseI)
 	return list
 }
 
-func RangePoint(target SkillTarget, cmd StdUserAttackCMD, max float32, atk ObjBaseI) []ObjBaseI {
+func RangePoint(target SkillTarget, cmd *StdUserAttackCMD, max float32, atk ObjBaseI) []ObjBaseI {
 	point := cmd.location.toPoint()
 	var min ObjBaseI = nil
 	var num = max
-	for x := point.BlockX - 1; x <= point.BlockX+1; x++ {
-		for y := point.BlockY - 1; y <= point.BlockY+1; y++ {
-			for _, o := range atk.GetRoom().GetWorld().GetBlock(x, y).Objs {
-				if !o.CheckTarget(target) {
-					continue
+	if (target & SKILL_TARGET_TREE) != 0 {
+		for x := point.BlockX - 1; x <= point.BlockX+1; x++ {
+			for y := point.BlockY - 1; y <= point.BlockY+1; y++ {
+				for _, o := range atk.GetRoom().GetWorld().GetBlock(x, y).Objs {
+					if !o.CheckTarget(target) {
+						continue
+					}
+					pos := o.GetPos()
+					newPos := pos.Add(*cmd.location.MultiplyNum(-1))
+					line := newPos.magnitude()
+					if line < num && line > 0 {
+						num = line
+						min = o
+					}
 				}
-				pos := o.GetPos()
-				newPos := pos.Add(*cmd.location.MultiplyNum(-1))
-				line := newPos.magnitude()
-				if line < num && line > 0 {
-					num = line
-					min = o
-				}
+			}
+		}
+	}
+
+	if (target & SKILL_TARGET_MONSTETR) != 0 {
+		for _, m := range atk.GetRoom().monsters {
+			pos := m.GetPos()
+			new_pos := pos.Add(*cmd.location.MultiplyNum(-1))
+			line := new_pos.magnitude()
+			if line < num && line > 0 {
+				num = line
+				min = m
+			}
+		}
+	}
+	if (target & SKILL_TARGET_USER) != 0 {
+		for _, m := range atk.GetRoom().players {
+			if !m.Online {
+				continue
+			}
+			pos := m.GetPos()
+			new_pos := pos.Add(*cmd.location.MultiplyNum(-1))
+			line := new_pos.magnitude()
+			if line < num && line > 0 {
+				num = line
+				min = m
 			}
 		}
 	}

@@ -18,8 +18,8 @@ enum BlockType{
 }
 
 message Obj{
-  int32 form = 1;
-  int32 subform = 2;
+  Form form = 1;
+  SubForm subform = 2;
   int32 objId = 3;
   LocationInfo index = 4;
 }
@@ -35,6 +35,8 @@ enum Cmd{
   Move = 2;
   StopMove = 3;
   Attack = 4;
+  Damage = 5;
+  Attack_EXit = 6;
 }
 
 message MsgFromClient{
@@ -72,6 +74,40 @@ message MsgScene{
   repeated Block blocks = 1;
   repeated CharInfo chars = 2;
   repeated MoveInfo moves = 3;
+  repeated TreeInfo trees = 4;
+  repeated DeleteInfo deletes = 5;
+  repeated MonsterInfo monsters = 6;
+  repeated MonsterMove  monsterMove = 7;
+}
+
+message MonsterInfo{
+  int32  id = 1;
+  LocationInfo index = 2;
+  LocationInfo face = 3;
+  int32 AStatus = 4;
+  SubForm subform = 5;
+}
+
+
+message MonsterMove{
+  int32 id = 1;
+  SubForm subForm = 2;
+  LocationInfo des = 3;
+  LocationInfo v = 4;
+  float  speed = 5;
+  int32 AStatus = 6;
+}
+
+message DeleteInfo{
+  Form form = 1;
+  SubForm subForm = 2;
+  int32 id = 3;
+  string name = 4;
+}
+
+message TreeInfo{
+  int32  id = 1;
+  int32  status = 2;
 }
 
 message MoveInfo{
@@ -86,15 +122,11 @@ message CharInfo{
   LocationInfo index = 2;
   LocationInfo face = 3;
   bool isUser = 4;
-  AnimatorStatus AStatus = 5;
+  int32 AStatus = 5;
+  int32 Hp =6;
 }
 
-enum AnimatorStatus{
-  Default = 0;
-  MOVE = 1;
-  STOPMOVE = 2;
-  ATTACK = 3;
-}
+
 
 message LocationInfo{
   float x = 1;

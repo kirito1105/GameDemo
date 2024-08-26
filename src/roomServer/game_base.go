@@ -9,8 +9,16 @@ type Skiller interface {
 	SkillMaInit()
 }
 
+type Sender interface {
+	SendToMe()
+	SendToNine()
+
+	SendFaceToNine(x float32, y float32)
+}
+
 type ObjBaseI interface {
 	Skiller
+	Sender
 
 	GetID() int32
 	SetID(id int32)
@@ -29,6 +37,7 @@ type ObjBaseI interface {
 	SetHp(int)
 	AddHp(int)
 	isDead() bool
+	ComputeDamage(int)
 
 	isInvincible() bool
 	InvincibleOn()
@@ -41,6 +50,8 @@ type ObjBaseI interface {
 	SetFace(Vector2)
 
 	GetStatus() int32
+	AddStatus(int32)
+	RemoveStatus(int32)
 
 	GetSpeed() float32
 	SetSpeedBase(float32)
@@ -53,6 +64,16 @@ type ObjBaseI interface {
 	SetAtkBase(atk int)
 
 	GetDef() int
+
+	IsImmobilize() bool
+	Immobilize()
+	DisImmobilize()
+
+	GetAttackID() int32
+	SetAttackID(int32)
+
+	GetSkillID(int) int32
+	SetSkillID(int, int32)
 }
 
 type ObjBase struct {
@@ -74,6 +95,10 @@ type ObjBase struct {
 	atkB         int         //攻击力最终值提升
 	atkP         int         //攻击力百分比提升
 	def          int         //防御力
+	Astatus      int32       //动画状态
+	immobilize   bool        //定身状态
+	AttackId     int32       //普攻id
+	Skill1Id     int32       //技能1的id
 }
 
 func (this *ObjBase) GetStatusManager() *SkillStatusManager {
@@ -91,16 +116,18 @@ func (this *ObjBase) GetSkillManager() *SkillManager {
 }
 
 func (this *ObjBase) Init() {
-	this.bufManger = NewSkillStatusManager()
-	this.skillManager = NewSkillManager()
+	this.BuffMaInit()
+	this.SkillMaInit()
 }
 
 func (this *ObjBase) BuffMaInit() {
 	this.bufManger = NewSkillStatusManager()
+	this.bufManger.initOwner(this)
 }
 
 func (this *ObjBase) SkillMaInit() {
 	this.skillManager = NewSkillManager()
+	this.skillManager.Init(this)
 }
 
 func (this *ObjBase) GetID() int32 {
@@ -147,7 +174,7 @@ func (this *ObjBase) AddHp(hp int) {
 }
 
 func (this *ObjBase) isDead() bool {
-	return this.hp > 0
+	return !(this.hp > 0)
 }
 
 func (this *ObjBase) GetHp() int {
@@ -194,7 +221,14 @@ func (this *ObjBase) AddSpeed(t int32) {
 }
 
 func (this *ObjBase) GetStatus() int32 {
-	return 0
+	return this.Astatus
+}
+
+func (this *ObjBase) AddStatus(status int32) {
+	this.Astatus = this.Astatus | status
+}
+func (this *ObjBase) RemoveStatus(status int32) {
+	this.Astatus = this.Astatus & (^status)
 }
 
 func (this *ObjBase) GetRoom() *Room {
@@ -228,4 +262,54 @@ func (this *ObjBase) InvincibleOn() {
 }
 func (this *ObjBase) InvincibleOff() {
 	this.invincible = false
+}
+
+func (this *ObjBase) ComputeDamage(damage int) {
+	n := (100.0 / float32(this.GetDef()+100))
+	t_damage := float32(damage) * n
+	this.AddHp(-1 * int(t_damage))
+
+}
+
+func (this *ObjBase) SendToMe() {
+	logrus.Error("[TCP]调用到了未被重写的函数 SendToMe")
+}
+func (this *ObjBase) SendToNine() {
+	logrus.Error("[TCP]调用到了未被重写的函数 SendToNine")
+}
+
+func (this *ObjBase) IsImmobilize() bool {
+	return this.immobilize
+}
+func (this *ObjBase) Immobilize() {
+	this.immobilize = true
+}
+func (this *ObjBase) DisImmobilize() {
+	this.immobilize = false
+}
+
+func (this *ObjBase) SendFaceToNine(x float32, y float32) {
+	logrus.Error("[TCP]调用到了未被重写的函数 SendFaceToNine")
+}
+
+func (this *ObjBase) GetAttackID() int32 {
+	return this.AttackId
+}
+func (this *ObjBase) SetAttackID(id int32) {
+	this.AttackId = id
+}
+
+func (this *ObjBase) GetSkillID(num int) int32 {
+	switch num {
+	case 1:
+		return this.Skill1Id
+	}
+
+	return -1
+}
+func (this *ObjBase) SetSkillID(num int, id int32) {
+	switch num {
+	case 1:
+		this.Skill1Id = id
+	}
 }

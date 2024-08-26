@@ -11,6 +11,7 @@ const (
 	NOUSER         = 2
 	PWDERR         = 3
 	OUTTIMESESSION = 4
+	NOROOM         = 5
 )
 
 type Res struct {

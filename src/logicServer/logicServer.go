@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"log"
 	"myGameDemo/logicServer/userConsole"
 	"myGameDemo/myMsg"
@@ -141,6 +142,35 @@ func createRoom(w http.ResponseWriter, r *http.Request) {
 	a, _ := GetRcClient().CreateRoom(context.Background(), &myRPC.GameRoomFindInfo{
 		Username:   username,
 		GameMode:   myRPC.Gamemode_COOPERATION,
+		MustCreate: true,
+	})
+	m := RoomToClien{
+		IsFind:   a.IsFind,
+		RoomAddr: a.RoomAddr,
+		RoomId:   a.RoomId,
+	}
+	m.Token = base64.StdEncoding.EncodeToString(a.Token)
+	myMsg.Send(&w, &myMsg.Res{Code: myMsg.SUCCESS, Data: m})
+}
+
+func randRoom(w http.ResponseWriter, r *http.Request) {
+	var session userConsole.SessionInfo
+	if err := json.NewDecoder(r.Body).Decode(&session); err != nil {
+		log.Fatal(err)
+		return
+	}
+	check, err := userConsole.GetUserConsole().SessionCheck(session)
+	if err != nil {
+		return
+	}
+	if check.Code != myMsg.SUCCESS {
+		myMsg.Send(&w, &myMsg.Res{Code: myMsg.OUTTIMESESSION, Msg: "会话过期"})
+		return
+	}
+	username := check.Msg
+	a, _ := GetRcClient().CreateRoom(context.Background(), &myRPC.GameRoomFindInfo{
+		Username:   username,
+		GameMode:   myRPC.Gamemode_COOPERATION,
 		MustCreate: false,
 	})
 	m := RoomToClien{
@@ -150,6 +180,47 @@ func createRoom(w http.ResponseWriter, r *http.Request) {
 	}
 	m.Token = base64.StdEncoding.EncodeToString(a.Token)
 	myMsg.Send(&w, &myMsg.Res{Code: myMsg.SUCCESS, Data: m})
+}
+
+func isLogic(w http.ResponseWriter, r *http.Request) {
+	result := &myMsg.Res{
+		Code: myMsg.SUCCESS,
+		Msg:  "this is a logic server",
+	}
+	err := myMsg.Send(&w, result)
+	if err != nil {
+		return
+	}
+	return
+}
+
+func getRooms(w http.ResponseWriter, r *http.Request) {
+	re, _ := GetRcClient().GetRoomList(context.Background(), &myRPC.Empty{})
+
+	if err := json.NewEncoder(w).Encode(re); err != nil {
+		log.Fatal(err)
+	}
+
+	return
+}
+func enterRoom(w http.ResponseWriter, r *http.Request) {
+	var info myRPC.RoomInfoNode
+	if err := json.NewDecoder(r.Body).Decode(&info); err != nil {
+		log.Fatal(err)
+		return
+	}
+	fmt.Println(info)
+	room, err := GetRcClient().EnterRoom(context.Background(), &info)
+	res := &myMsg.Res{}
+	if err != nil {
+		fmt.Println(err)
+		res.Code = myMsg.NOROOM
+		myMsg.Send(&w, res)
+		return
+	}
+	res.Data = room
+	res.Code = myMsg.SUCCESS
+	myMsg.Send(&w, res)
 }
 
 //func matchingRoom(w http.ResponseWriter, r *http.Request) {
@@ -187,7 +258,10 @@ func (N *LogicServer) Run() {
 	http.HandleFunc("/ID", serverID)
 	http.HandleFunc("/heart", heart)
 	http.HandleFunc("/createRoom", createRoom)
-
+	http.HandleFunc("/isLogic", isLogic)
+	http.HandleFunc("/randRoom", randRoom)
+	http.HandleFunc("/getRooms", getRooms)
+	http.HandleFunc("/enterRoom", enterRoom)
 	//http.HandleFunc("/MatchingRoom", matchingRoom)
 
 	if err := http.ListenAndServe(N.Addr, nil); err != nil {

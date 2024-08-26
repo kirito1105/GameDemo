@@ -29,11 +29,23 @@ func (p *RCServer) CreateRoom(ctx context.Context, gameFindInfo *myRPC.GameRoomF
 
 }
 
+func (p *RCServer) EnterRoom(ctx context.Context, Info *myRPC.RoomInfoNode) (*myRPC.RoomInfo, error) {
+	r, err := EnterRoom(Info)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
 func (p *RCServer) RoomServerHeart(ctx context.Context, info *myRPC.RoomServerInfo) (*myRPC.Res, error) {
 	//fmt.Println(info)
 	RoomServerHeart(info)
 	//fmt.Println(GetRoomServerRegisterCenter().roomServerList.Front())
 	return &myRPC.Res{Code: myRPC.Code_SUCCESS}, nil
+}
+func (p *RCServer) GetRoomList(ctx context.Context, info *myRPC.Empty) (*myRPC.RoomInfoArray, error) {
+	//TODO
+	return GetRoomServerRegisterCenter().GetRoomList()
 }
 
 type RPCRoomCenter struct{}
