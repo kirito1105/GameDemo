@@ -139,11 +139,14 @@ func createRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	username := check.Msg
-	a, _ := GetRcClient().CreateRoom(context.Background(), &myRPC.GameRoomFindInfo{
+	a, err := GetRcClient().CreateRoom(context.Background(), &myRPC.GameRoomFindInfo{
 		Username:   username,
 		GameMode:   myRPC.Gamemode_COOPERATION,
 		MustCreate: true,
 	})
+	if err != nil {
+		return
+	}
 	m := RoomToClien{
 		IsFind:   a.IsFind,
 		RoomAddr: a.RoomAddr,

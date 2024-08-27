@@ -36,6 +36,8 @@ func NewSkillStatusManager() *SkillStatusManager {
 
 	SSM.funcList[200] = SkillStatus_200
 	SSM.funcList[201] = SkillStatus_201
+
+	SSM.funcList[301] = SkillStatus_301
 	return SSM
 }
 
@@ -135,7 +137,7 @@ func (this *SkillStatusManager) timeTick() {
 	delStatus = make([]int16, 0)
 
 	for k, v := range this.timeMap {
-		if time.Now().Unix() > v.timer || this.clearAllBuff {
+		if (time.Now().Unix() > v.timer && v.timer > 0) || this.clearAllBuff {
 			this.SetEleStop(v)
 			delStatus = append(delStatus, k)
 		} else {

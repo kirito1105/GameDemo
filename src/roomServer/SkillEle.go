@@ -105,6 +105,10 @@ func SkillStatus_200(obj ObjBaseI, ele *SkillEle) SkillStatus {
 		fallthrough
 	case SKILL_STEP_TIME:
 		obj.AddHp(int(-ele.value))
+		if obj.isDead() {
+			obj.SendToNine()
+		}
+
 		return SKILL_STATUS_TICK
 	case SKILL_STEP_STOP:
 		fallthrough
@@ -126,6 +130,10 @@ func SkillStatus_201(obj ObjBaseI, ele *SkillEle) SkillStatus {
 		fallthrough
 	case SKILL_STEP_TIME:
 		obj.AddHp(int(-ele.value))
+		if obj.isDead() {
+			obj.SendToNine()
+		}
+
 		return SKILL_STATUS_TICK
 	case SKILL_STEP_STOP:
 		fallthrough
@@ -133,4 +141,23 @@ func SkillStatus_201(obj ObjBaseI, ele *SkillEle) SkillStatus {
 
 	}
 	return 0
+}
+
+// ATK A up
+func SkillStatus_301(obj ObjBaseI, ele *SkillEle) SkillStatus {
+	if obj == nil {
+		return SKILL_STATUS_TIME
+	}
+	switch ele.byStep {
+	case SKILL_STEP_START:
+		fallthrough
+	case SKILL_STEP_RELOAD:
+		obj.AddAtkA(ele.value)
+	case SKILL_STEP_TIME:
+	case SKILL_STEP_STOP:
+		fallthrough
+	case SKILL_STEP_CLEAR:
+		obj.AddAtkA(-ele.value)
+	}
+	return SKILL_STATUS_TIME
 }

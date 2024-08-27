@@ -20,6 +20,18 @@ func init() {
 		max:      2,
 		fun:      RangePoint,
 	}
+	SkillBaseList[2] = &SkillBase{
+		MaxLevel:   4,
+		Damages:    []int16{100, 100, 110, 110, 120},
+		cd:         1000,
+		Target:     SKILL_TARGET_TREE | SKILL_TARGET_MONSTETR,
+		Buffs:      []int16{200},
+		BuffTarget: []SkillTarget{SKILL_TARGET_MONSTETR},
+		BuffValue:  [][]int32{{2, 5, 8, 10, 15}},
+		BuffTime:   [][]int64{{2, 2, 2, 2, 2}},
+		max:        2,
+		fun:        RangePoint,
+	}
 
 	//怪物平a
 	SkillBaseList[101] = &SkillBase{
@@ -29,6 +41,15 @@ func init() {
 		Target:   SKILL_TARGET_USER,
 		max:      2,
 		fun:      RangePoint,
+	}
+	// 被动技能
+	// ATK up
+	SkillBaseList[301] = &SkillBase{
+		MaxLevel:  9,
+		Buffs:     []int16{301},
+		BuffValue: [][]int32{{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}},
+		Target:    SKILL_TARGET_USER,
+		Type:      SKILL_TYPE_PASSIVITY,
 	}
 }
 

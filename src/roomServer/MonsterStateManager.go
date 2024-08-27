@@ -156,6 +156,7 @@ func (this *MonsterSearch) OnExit() {}
 
 type MonsterMove struct {
 	StateBase
+	lastMove Vector2
 }
 
 func NewMonsterMove(owner ObjBaseI) *MonsterMove {
@@ -166,7 +167,9 @@ func NewMonsterMove(owner ObjBaseI) *MonsterMove {
 }
 func (this *MonsterMove) OnEnter() {
 	this.owner.AddStatus(ASTATUS_MOVE)
+	this.lastMove = *new(Vector2)
 }
+
 func (this *MonsterMove) OnExecute() {
 	if val, ok := this.owner.(*Monster).des.(*Player); ok {
 		if !val.Online {
@@ -188,10 +191,13 @@ func (this *MonsterMove) OnExecute() {
 	}
 
 	v = v.MultiplyNum(1 / v.magnitude())
-
-	new_pos := pos.Add(*v.MultiplyNum(speed * (float32(ft) / float32(time.Second))))
+	v = v.MultiplyNum(speed)
+	new_pos := pos.Add(*v.MultiplyNum((float32(ft) / float32(time.Second))))
 	this.owner.SetPos(*new_pos)
 
+	if v.Equal(&this.lastMove) {
+		return
+	}
 	//广播移动
 	msg := &myMsg.MonsterMove{
 		Id:      this.owner.GetID(),
@@ -315,6 +321,9 @@ func NewPig() *Monster {
 }
 
 func (this *Monster) SendToNine() {
+	if this.isDead() {
+		this.AddStatus(ASTATUS_DEAD)
+	}
 	msg := &myMsg.MonsterInfo{
 		Id: this.GetID(),
 		Index: &myMsg.LocationInfo{
@@ -324,8 +333,11 @@ func (this *Monster) SendToNine() {
 		Subform: myMsg.SubForm_PIG,
 		AStatus: this.GetStatus(),
 	}
-
 	this.GetRoom().chan_monster <- msg
+	if this.isDead() {
+		delete(this.GetRoom().monsters, this.GetID())
+		this.GetStatusManager().Clear()
+	}
 }
 func (this *Monster) ComputeDamage(damage int) {
 	n := (100.0 / float32(this.GetDef()+100))

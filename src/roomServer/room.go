@@ -16,7 +16,7 @@ type InterForPlayer interface {
 }
 
 const (
-	ft = 100 * time.Millisecond
+	ft = 200 * time.Millisecond
 )
 
 type Room struct {
@@ -26,6 +26,7 @@ type Room struct {
 	players      map[string]*Player
 	monsters     map[int32]*Monster
 	world0       *World
+	closeFlag    bool
 
 	//活跃检测
 	inactive *Set
@@ -118,6 +119,7 @@ func (this *Room) PlayerOff(u string) {
 	if this.taskWithName[u] == nil {
 		return
 	}
+	dead := this.taskWithName[u].Dead
 	this.taskWithName[u].Close()
 	delete(this.taskWithName, u)
 	this.players[u].Online = false
@@ -131,6 +133,12 @@ func (this *Room) PlayerOff(u string) {
 	this.chan_delete <- d
 
 	GetRoomController().PlayerOffline(u)
+	if dead {
+		delete(this.players, u)
+		if len(this.taskWithName) == 0 {
+			this.close()
+		}
+	}
 }
 
 func (this *Room) GetMsgBlockWithIndex(x int, y int) *myMsg.Block { //x,y为Block坐标
@@ -228,9 +236,13 @@ func (this *Room) Start() {
 			}
 			p := NewPlayerTask(conn, this)
 			p.Start()
+			if this.closeFlag {
+				this.tcpListener.Close()
+				return
+			}
 		}
 	}()
-	//TODO bufTest
+
 	//go func() {
 	//	for {
 	//		ele := SkillEle{
@@ -246,8 +258,6 @@ func (this *Room) Start() {
 	//	}
 	//}()
 
-	//TODO END
-
 	go func() {
 		statusTicker := time.Tick(time.Second)
 		ticker := time.Tick(ft)
@@ -261,6 +271,9 @@ func (this *Room) Start() {
 				this.MoveLoop()
 				this.MoveUpdate()
 				this.Update()
+				if this.closeFlag {
+					return
+				}
 			//fmt.Println("一帧消耗了", time.Now().UnixMicro()-t)
 			case <-statusTicker:
 				for _, p := range this.players {
@@ -274,10 +287,13 @@ func (this *Room) Start() {
 	}()
 	//活跃检测
 	go func() {
-		ticker := time.Tick(time.Second * 1)
+		ticker := time.Tick(time.Millisecond * 1500)
 		for {
 			select {
 			case <-ticker:
+				if this.closeFlag {
+					return
+				}
 				//关闭两侧未收到消息的连接
 				this.pinged.Range(func(key any, value any) bool {
 					u := fmt.Sprint(key)
@@ -435,6 +451,10 @@ STEP:
 					x: move.velocity.x,
 					y: move.velocity.y,
 				})
+				if move.velocity.Equal(&player.lastMove) {
+					continue
+				}
+				player.lastMove = *move.velocity
 				mv := &myMsg.MoveInfo{
 					Username: move.username,
 					Des: &myMsg.LocationInfo{
@@ -588,7 +608,6 @@ func NewMsgScene() *myMsg.MsgScene {
 }
 
 func (this *Room) GetMyWorld(x int, y int) *Block {
-	//todo
 	b := this.world0.GetBlock(x, y)
 	return &b
 }
@@ -628,6 +647,19 @@ func (this *Room) CheckMove(old Point, new Point, username string) bool {
 	bytes, _ := proto.Marshal(msg)
 	this.taskWithName[username].tcpTask.SendMsg(AddHeader(bytes))
 	return true
+}
+
+func (this *Room) close() {
+	this.closeFlag = true
+
+	GetRoomController().RemoveRoom(this.RoomID)
+}
+func (this *Room) SendEXP(num int) {
+	for _, p := range this.players {
+		levelup := p.levelManager.addExp(num)
+		fmt.Println(levelup)
+		//todo
+	}
 }
 
 type SkillMsg struct {

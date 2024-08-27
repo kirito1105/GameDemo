@@ -74,6 +74,8 @@ type ObjBaseI interface {
 
 	GetSkillID(int) int32
 	SetSkillID(int, int32)
+
+	AddAtkA(num int32)
 }
 
 type ObjBase struct {
@@ -311,5 +313,12 @@ func (this *ObjBase) SetSkillID(num int, id int32) {
 	switch num {
 	case 1:
 		this.Skill1Id = id
+	}
+}
+
+func (this *ObjBase) AddAtkA(num int32) {
+	this.atkA += int(num)
+	if this.atkA < 0 {
+		this.atkA = 0
 	}
 }

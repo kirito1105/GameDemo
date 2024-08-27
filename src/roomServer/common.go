@@ -71,6 +71,10 @@ func (v *Vector2) toPoint() *Point {
 	return NewPoint(x, y)
 }
 
+func (v *Vector2) Equal(v2 *Vector2) bool {
+	return math.Abs(float64(v.x-v2.x)) < 1e-6 && math.Abs(float64(v.y-v2.y)) < 1e-6
+}
+
 func (v *Vector2) CanSee(vector2 Vector2) bool {
 	point1 := v.toPoint()
 	point2 := vector2.toPoint()

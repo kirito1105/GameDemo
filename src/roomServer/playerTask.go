@@ -17,6 +17,7 @@ type PlayerTask struct {
 	tcpTask   *mynet.TCPTask
 	inRoom    *Room
 	RTT       int64
+	Dead      bool
 }
 
 func (p *PlayerTask) ParseMsg(data []byte) bool {
@@ -204,9 +205,10 @@ func (this *PlayerTask) Close() {
 // 玩家局内信息
 type Player struct {
 	ObjBase
-	username string
-	Online   bool
-	lastMove Vector2
+	username     string
+	Online       bool
+	lastMove     Vector2
+	levelManager *LevelManager
 }
 
 var playerId IdManager
@@ -221,6 +223,8 @@ func NewPlayer(username string, pos Vector2) *Player {
 	p.SetHp(100)
 	p.SetPos(pos)
 	p.SetSpeedBase(4.0)
+
+	p.levelManager = NewLevelManager()
 
 	p.BuffMaInit()
 	p.bufManger.initOwner(p)
@@ -284,6 +288,7 @@ func (this *Player) ComputeDamage(damage int) {
 	this.AddHp(int(-t_damage))
 	if this.isDead() {
 		this.AddStatus(ASTATUS_DEAD)
+		this.GetRoom().taskWithName[this.username].Dead = true
 	} else {
 		this.AddStatus(ASTATUS_INJURED)
 	}

@@ -95,11 +95,10 @@ func (this *ObjectManager) TimeTick() {
 }
 
 func (this *TreeObj) ComputeDamage(damage int) {
-	logrus.Debug("[技能]技能伤害为", damage)
+
 	n := (100.0 / float32(this.GetDef()+100))
 	t_damage := float32(damage) * n
-	logrus.Debug("[世界]树木收到的伤害为", t_damage)
-	logrus.Debug("[世界]树木的血量为", this.GetHp())
+
 	this.AddHp(int(-t_damage))
 	treeinfo := &myMsg.TreeInfo{
 		Id: this.GetID(),
@@ -116,9 +115,11 @@ func (this *TreeObj) ComputeDamage(damage int) {
 			}
 		}
 		this.GetRoom().GetWorld().blocks[p.BlockX][p.BlockY].Objs = append(this.GetRoom().GetWorld().blocks[p.BlockX][p.BlockY].Objs[:i], this.GetRoom().GetWorld().blocks[p.BlockX][p.BlockY].Objs[i+1:]...)
+		this.GetRoom().SendEXP(50)
 	} else {
 		treeinfo.Status = ASTATUS_INJURED
 	}
 
 	this.GetRoom().chan_tree <- treeinfo
+
 }

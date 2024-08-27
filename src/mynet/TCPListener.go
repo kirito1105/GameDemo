@@ -35,3 +35,7 @@ func (this *TCPListener) AcceptTCP() (*net.TCPConn, error) {
 	}
 	return conn, nil
 }
+
+func (this *TCPListener) Close() error {
+	return this.listener.Close()
+}

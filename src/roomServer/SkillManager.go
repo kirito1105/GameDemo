@@ -70,5 +70,19 @@ func (this *SkillManager) runForverPassiveSkill(skill *Skill) {
 	}
 	if skill.GetType()&SKILL_TYPE_PASSIVITY != 0 {
 		//todo 释放技能
+		for i, id := range skill.base.Buffs {
+			var ele SkillEle
+			ele.eleId = id
+			ele.skillID = skill.GetID()
+			ele.level = skill.GetLevel()
+			ele.value = skill.GetBase().BuffValue[i][ele.level]
+			ele.timer = -1
+			ele.byStep = SKILL_STEP_START
+
+			ele.attackId = string(this.owner.GetID())
+
+			this.owner.GetStatusManager().add(&ele)
+		}
+
 	}
 }
