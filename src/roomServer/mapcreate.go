@@ -2,6 +2,7 @@ package roomServer
 
 import (
 	"bufio"
+	"fmt"
 	"image"
 	"image/color"
 	"image/png"
@@ -83,12 +84,18 @@ func CreateWorld(blocks [Size][Size]bool) *World {
 
 func NewWorld(room *Room) *World {
 	w := BlockCreate{}
+
 	w.Init()
+	w.ToImage("../MAP/1.png")
 	for i := 2; i < 6; i++ {
 		w.Loop(3, 4)
+		w.ToImage(fmt.Sprint("../MAP/", i, ".png"))
+
 	}
 	for i := 6; i < 10; i++ {
 		w.Loop(0, 4)
+		w.ToImage(fmt.Sprint("../MAP/", i, ".png"))
+
 	}
 	world1 := CreateWorld(w.GetWorld())
 	world1.Init(room)
@@ -243,7 +250,6 @@ func (this *BlockCreate) LoopWithOutCount(min int, max int) {
 		for j := 1; j < Size-1; j++ {
 			if this.CountPoint(i, j) > max || this.CountPoint(i, j) < min {
 				this.world[i][j] = true
-			} else if this.count[i][j] == 5 {
 			} else {
 				this.world[i][j] = false
 			}
@@ -266,6 +272,7 @@ func (this *BlockCreate) ToImage(str string) {
 	}
 	f, err := os.Create(str)
 	if err != nil {
+		fmt.Println(err)
 		return
 	}
 	b := bufio.NewWriter(f)

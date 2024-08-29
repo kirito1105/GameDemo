@@ -105,8 +105,9 @@ func SkillStatus_200(obj ObjBaseI, ele *SkillEle) SkillStatus {
 		fallthrough
 	case SKILL_STEP_TIME:
 		obj.AddHp(int(-ele.value))
+		//logrus.Trace("[Monster]")
 		if obj.isDead() {
-			obj.SendToNine()
+			obj.SendToNineNow()
 		}
 
 		return SKILL_STATUS_TICK
@@ -131,7 +132,7 @@ func SkillStatus_201(obj ObjBaseI, ele *SkillEle) SkillStatus {
 	case SKILL_STEP_TIME:
 		obj.AddHp(int(-ele.value))
 		if obj.isDead() {
-			obj.SendToNine()
+			obj.SendToNineNow()
 		}
 
 		return SKILL_STATUS_TICK

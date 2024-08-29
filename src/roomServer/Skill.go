@@ -37,8 +37,10 @@ type SkillData struct {
 }
 
 type Skill struct {
-	data SkillData
-	base *SkillBase
+	data  SkillData
+	base  *SkillBase
+	time  int64
+	mutex sync.Mutex
 }
 
 func NewSkill() *Skill {
@@ -56,14 +58,21 @@ func (this *Skill) GetType() int32 {
 }
 
 func (this *Skill) SkillActionStart(cmd *StdUserAttackCMD, obj ObjBaseI) {
-
+	this.mutex.Lock()
+	defer this.mutex.Unlock()
+	if time.Now().Unix()-this.time > 5 {
+		this.data.SKillStep = SKILL_START
+		obj.DisImmobilize()
+	}
 	if this.data.SKillStep == SKILL_START {
 		if this.IsCD() {
 			logrus.Debug("[技能]", this.GetID(), "正在CD中")
 			return
 		}
+		this.time = time.Now().Unix()
 		obj.AddStatus(ASTATUS_ATTACK)
 		obj.Immobilize()
+		obj.RemoveStatus(ASTATUS_MOVE)
 		logrus.Debug("[技能]释放技能", this.GetID())
 		list := this.base.fun(this.base.Target, cmd, this.base.max, obj)
 		logrus.Debug("[技能]预命中", list)
@@ -75,9 +84,7 @@ func (this *Skill) SkillActionStart(cmd *StdUserAttackCMD, obj ObjBaseI) {
 			obj.SendFaceToNine(x, y)
 		}
 		//技能释放动画'
-		logrus.Debug("[动画]动画状态", obj.GetStatus())
-		logrus.Debug("[动画]动画状态", obj.GetStatus())
-		obj.SendToNine()
+		obj.SendToNineNow()
 
 		this.data.lastTime = time.Now().UnixMilli()
 		this.data.SKillStep = SKILL_ANIMATION
@@ -86,11 +93,13 @@ func (this *Skill) SkillActionStart(cmd *StdUserAttackCMD, obj ObjBaseI) {
 }
 
 func (this *Skill) SkillActionDamage(cmd *StdUserAttackCMD, obj ObjBaseI) {
+	this.mutex.Lock()
+	defer this.mutex.Unlock()
 	if this.data.SKillStep == SKILL_ANIMATION {
 		list := this.base.fun(this.base.Target, cmd, this.base.max, obj)
 		logrus.Debug("[技能]命中", list)
 		obj.RemoveStatus(ASTATUS_ATTACK)
-		obj.SendToNine()
+		obj.SendToNineNow()
 		skillRelease := NewSkillRelease(cmd, this, obj, list)
 		skillRelease.Release()
 
@@ -99,6 +108,8 @@ func (this *Skill) SkillActionDamage(cmd *StdUserAttackCMD, obj ObjBaseI) {
 }
 
 func (this *Skill) SkillActionEnd(cmd *StdUserAttackCMD, obj ObjBaseI) {
+	this.mutex.Lock()
+	defer this.mutex.Unlock()
 	if this.data.SKillStep == SKILL_DAMAGE {
 		this.data.SKillStep = SKILL_START
 		obj.DisImmobilize()
@@ -106,6 +117,8 @@ func (this *Skill) SkillActionEnd(cmd *StdUserAttackCMD, obj ObjBaseI) {
 }
 
 func (this *Skill) SkillActionClear(cmd *StdUserAttackCMD, obj ObjBaseI) {
+	this.mutex.Lock()
+	defer this.mutex.Unlock()
 	if this.data.SKillStep == SKILL_START {
 		return
 	}

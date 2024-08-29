@@ -16,7 +16,7 @@ type InterForPlayer interface {
 }
 
 const (
-	ft = 200 * time.Millisecond
+	ft = 50 * time.Millisecond
 )
 
 type Room struct {
@@ -266,8 +266,8 @@ func (this *Room) Start() {
 			case <-ticker:
 				//t := time.Now().UnixMicro()
 				this.FNO = this.FNO + 1
+				this.SkillLearnLoop()
 				this.MonsterLoop()
-				this.SkillLoop()
 				this.MoveLoop()
 				this.MoveUpdate()
 				this.Update()
@@ -280,6 +280,9 @@ func (this *Room) Start() {
 					if p.Online {
 						p.bufManger.timeTick()
 					}
+				}
+				for _, m := range this.monsters {
+					m.bufManger.timeTick()
 				}
 				this.world0.ObjManager.TimeTick()
 			}
@@ -298,7 +301,6 @@ func (this *Room) Start() {
 				this.pinged.Range(func(key any, value any) bool {
 					u := fmt.Sprint(key)
 
-					logrus.Debug("[TCP]关闭玩家：", u, "TCP连接")
 					this.PlayerOff(u)
 					return true
 				})
@@ -329,16 +331,52 @@ func (this *Room) Start() {
 	}()
 }
 
+func (this *Room) SkillLearnLoop() {
+	for _, p := range this.players {
+		if p.Online == false {
+			continue
+		}
+		if p.Waiting {
+			var ele SkillEle
+			ele.timer = time.Now().Unix() + 2
+			ele.eleId = 101
+			ele.byStep = SKILL_STEP_START
+			p.GetStatusManager().add(&ele)
+			continue
+		}
+		if p.levelUp == 0 {
+			continue
+		}
+
+		p.levelUp--
+		p.Waiting = true
+		list := p.GetSkillLearnList()
+		p.skillLearns = list
+		msg := &myMsg.MsgFromService{
+			FNO:       this.FNO,
+			SkillList: list,
+		}
+		by, _ := proto.Marshal(msg)
+		bytes := AddHeader(by)
+		this.taskWithName[p.username].tcpTask.SendMsg(bytes)
+	}
+}
+
 func (this *Room) MonsterLoop() {
 	//生成怪物
 
-	if this.FNO > 100 && len(this.monsters) < 1 {
+	if this.FNO > 500 && len(this.monsters) < len(this.taskWithName) {
 		for _, p := range this.players {
 			if !p.Online {
 				continue
 			}
 			if myRand.Intn(100) < 5 {
-				pig := this.world0.ObjManager.NewObj(ObjType{form: myMsg.Form_MONSTER, subForm: myMsg.SubForm_PIG})
+				var pig ObjBaseI
+				if myRand.Intn(100) < p.levelManager.level+int(this.FNO)/1000 {
+					pig = this.world0.ObjManager.NewObj(ObjType{form: myMsg.Form_MONSTER, subForm: myMsg.SubForm_PIG_02})
+				} else {
+					pig = this.world0.ObjManager.NewObj(ObjType{form: myMsg.Form_MONSTER, subForm: myMsg.SubForm_PIG})
+				}
 				pig.SetRoom(this)
 				v := p.GetPos()
 				randv := Vector2{
@@ -353,8 +391,6 @@ func (this *Room) MonsterLoop() {
 				}
 				pig.SetPos(v)
 				pig.SendToNine()
-				logrus.Debug("[房间]生成怪物")
-				logrus.Debug(p.username)
 				this.monsters[pig.GetID()] = pig.(*Monster)
 			}
 		}
@@ -366,37 +402,28 @@ func (this *Room) MonsterLoop() {
 	}
 }
 
-func (this *Room) SkillLoop() {
-	this.mutex_Skill.Lock()
-	defer this.mutex_Skill.Unlock()
-SkillStep:
-	for {
-		select {
-		case sk := <-this.chan_Skill:
-			logrus.Debug(sk)
-			var skill *Skill
-			if sk.skillID == 0 {
-				skill = this.players[sk.username].skillManager.GetSkillByID(this.players[sk.username].GetAttackID())
-			} else {
-				skill = this.players[sk.username].skillManager.GetSkillByID(this.players[sk.username].GetSkillID(int(sk.skillID)))
-			}
+func (this *Room) SkillRelease(sk *SkillMsg) {
 
-			if skill == nil {
-				logrus.Error("[技能]无效技能")
-				continue
-			}
-			if sk.step == SKILL_START {
-				skill.SkillActionStart(&sk.cmd, this.players[sk.username])
-
-			} else if sk.step == SKILL_DAMAGE {
-				skill.SkillActionDamage(&sk.cmd, this.players[sk.username])
-			} else if sk.step == SKILL_ANIMATION {
-				skill.SkillActionEnd(&sk.cmd, this.players[sk.username])
-			}
-		default:
-			break SkillStep
-		}
+	var skill *Skill
+	if sk.skillID == 0 {
+		skill = this.players[sk.username].skillManager.GetSkillByID(this.players[sk.username].GetAttackID())
+	} else {
+		skill = this.players[sk.username].skillManager.GetSkillByID(this.players[sk.username].GetSkillID(int(sk.skillID)))
 	}
+
+	if skill == nil {
+		logrus.Error("[技能]无效技能")
+		return
+	}
+	if sk.step == SKILL_START {
+		skill.SkillActionStart(&sk.cmd, this.players[sk.username])
+
+	} else if sk.step == SKILL_DAMAGE {
+		skill.SkillActionDamage(&sk.cmd, this.players[sk.username])
+	} else if sk.step == SKILL_ANIMATION {
+		skill.SkillActionEnd(&sk.cmd, this.players[sk.username])
+	}
+
 }
 
 func (this *Room) MoveLoop() {
@@ -655,10 +682,10 @@ func (this *Room) close() {
 	GetRoomController().RemoveRoom(this.RoomID)
 }
 func (this *Room) SendEXP(num int) {
+	logrus.Debug("[EXP]获取经验", num)
 	for _, p := range this.players {
 		levelup := p.levelManager.addExp(num)
-		fmt.Println(levelup)
-		//todo
+		p.levelUp += levelup
 	}
 }
 

@@ -37,6 +37,7 @@ enum Cmd{
   Attack = 4;
   Damage = 5;
   Attack_EXit = 6;
+  Skill_learn = 7;
 }
 
 message MsgFromClient{
@@ -44,6 +45,7 @@ message MsgFromClient{
   MsgAuthentication Authentication = 2;
   MsgMove move = 3;
   MsgSkillRelease skillRelease = 4;
+  SkillLearn skillLearn = 5;
 }
 
 message MsgSkillRelease{
@@ -61,6 +63,7 @@ message MsgFromService{
   int64 FNO = 1;
   MsgScene scene = 2;
   bool ping = 3;
+  repeated SkillLearn skillList= 4;
 }
 
 message MsgAuthentication{
@@ -148,4 +151,11 @@ enum SubForm{
   Berry_bush_03 = 3;
   PLAYER_01 = 4;
   PIG = 5;
+  PIG_02 = 6;
+  PIG_03 = 7;
+}
+
+message SkillLearn{
+  int32 SkillID = 1;
+  int32 SkillLevel = 2;
 }

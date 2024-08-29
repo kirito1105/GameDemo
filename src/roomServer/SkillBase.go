@@ -5,12 +5,16 @@ import (
 	"math"
 )
 
-var SkillBaseList []*SkillBase
+var SkillBaseList map[int32]*SkillBase
+var AttackList []int32
+var PassivityList []int32
 
 const MAX_SKILL_SIZE = 1024
 
 func init() {
-	SkillBaseList = make([]*SkillBase, MAX_SKILL_SIZE)
+	SkillBaseList = make(map[int32]*SkillBase)
+	AttackList = []int32{2, 3}
+	PassivityList = []int32{301}
 	//平A
 	SkillBaseList[1] = &SkillBase{
 		MaxLevel: 0,
@@ -27,7 +31,19 @@ func init() {
 		Target:     SKILL_TARGET_TREE | SKILL_TARGET_MONSTETR,
 		Buffs:      []int16{200},
 		BuffTarget: []SkillTarget{SKILL_TARGET_MONSTETR},
-		BuffValue:  [][]int32{{2, 5, 8, 10, 15}},
+		BuffValue:  [][]int32{{2, 5, 7, 10, 15}},
+		BuffTime:   [][]int64{{4, 4, 4, 4, 4}},
+		max:        2,
+		fun:        RangePoint,
+	}
+	SkillBaseList[3] = &SkillBase{
+		MaxLevel:   4,
+		Damages:    []int16{100, 100, 110, 110, 120},
+		cd:         1000,
+		Target:     SKILL_TARGET_TREE | SKILL_TARGET_MONSTETR,
+		Buffs:      []int16{201},
+		BuffTarget: []SkillTarget{SKILL_TARGET_MONSTETR},
+		BuffValue:  [][]int32{{10, 15, 20, 25, 30}},
 		BuffTime:   [][]int64{{2, 2, 2, 2, 2}},
 		max:        2,
 		fun:        RangePoint,
@@ -37,7 +53,16 @@ func init() {
 	SkillBaseList[101] = &SkillBase{
 		MaxLevel: 4,
 		Damages:  []int16{90, 100, 110, 120, 130},
-		cd:       5000,
+		cd:       6000,
+		Target:   SKILL_TARGET_USER,
+		max:      2,
+		fun:      RangePoint,
+	}
+	//怪物平a 强化版
+	SkillBaseList[102] = &SkillBase{
+		MaxLevel: 4,
+		Damages:  []int16{110, 120, 130, 140, 150},
+		cd:       2000,
 		Target:   SKILL_TARGET_USER,
 		max:      2,
 		fun:      RangePoint,
@@ -54,7 +79,7 @@ func init() {
 }
 
 type SkillBase struct {
-	MaxLevel   int16   //最大等级
+	MaxLevel   int32   //最大等级
 	Type       int32   //技能类型
 	Damages    []int16 //伤害列表
 	Buffs      []int16 //buf列表
@@ -66,6 +91,14 @@ type SkillBase struct {
 	Effect     int32       //特效状态id
 	max        float32
 	fun        func(target SkillTarget, cmd *StdUserAttackCMD, max float32, atk ObjBaseI) []ObjBaseI //技能范围
+}
+
+func GetAttack() []int32 {
+	return AttackList
+}
+
+func GetPassivity() []int32 {
+	return PassivityList
 }
 
 func RangeLine(target SkillTarget, cmd *StdUserAttackCMD, max float32, atk ObjBaseI) []ObjBaseI {

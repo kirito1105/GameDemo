@@ -9,6 +9,11 @@ const (
 	SKILL_TYPE_PASSIVITY int32 = 1 << iota
 )
 
+type SkillIdAndLevel struct {
+	SkillId int32
+	Level   int32
+}
+
 type SkillMap map[int32]*Skill
 
 type SkillManager struct {
@@ -50,6 +55,15 @@ func (this *SkillManager) AddSkill(id int32, level int32) error {
 
 	this.SkillMap[id] = skill
 	return nil
+}
+
+func (this *SkillManager) GetSkillIDAndLevel() []SkillIdAndLevel {
+	list := []SkillIdAndLevel{}
+	for _, v := range this.SkillMap {
+		t := SkillIdAndLevel{v.GetID(), v.GetLevel()}
+		list = append(list, t)
+	}
+	return list
 }
 
 func (this *SkillManager) RemoveSkill(id int32) {

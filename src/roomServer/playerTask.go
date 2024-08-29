@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/proto"
+	"math/rand"
 	"myGameDemo/myMsg"
+	"myGameDemo/myRand"
 	"myGameDemo/mynet"
 	"net"
-	"time"
 )
 
 type PlayerTask struct {
@@ -26,7 +27,6 @@ func (p *PlayerTask) ParseMsg(data []byte) bool {
 	var msg myMsg.MsgFromClient
 	_ = proto.Unmarshal(data, &msg)
 	//fmt.Println(msg.GetAuthentication().GetUsername())
-	logrus.Trace("[TCP]收到消息:", &msg)
 	//验证身份
 	if !p.isChecked && msg.GetCmd() == myMsg.Cmd_Authentication {
 		decoded, _ := base64.StdEncoding.DecodeString(msg.GetAuthentication().GetToken())
@@ -138,9 +138,7 @@ func (p *PlayerTask) ParseMsg(data []byte) bool {
 			skillID: msg.SkillRelease.SkillID,
 			step:    SKILL_START,
 		}
-		p.inRoom.mutex_Skill.Lock()
-		p.inRoom.chan_Skill <- sr
-		p.inRoom.mutex_Skill.Unlock()
+		go p.inRoom.SkillRelease(sr)
 	}
 	//伤害帧
 	if msg.GetCmd() == myMsg.Cmd_Damage {
@@ -159,9 +157,8 @@ func (p *PlayerTask) ParseMsg(data []byte) bool {
 			skillID: msg.SkillRelease.SkillID,
 			step:    SKILL_DAMAGE,
 		}
-		p.inRoom.mutex_Skill.Lock()
-		p.inRoom.chan_Skill <- sr
-		p.inRoom.mutex_Skill.Unlock()
+		go p.inRoom.SkillRelease(sr)
+
 	}
 	//动画结束
 	if msg.GetCmd() == myMsg.Cmd_Attack_EXit {
@@ -171,9 +168,13 @@ func (p *PlayerTask) ParseMsg(data []byte) bool {
 			skillID:  msg.SkillRelease.SkillID,
 		}
 
-		p.inRoom.mutex_Skill.Lock()
-		p.inRoom.chan_Skill <- sr
-		p.inRoom.mutex_Skill.Unlock()
+		go p.inRoom.SkillRelease(sr)
+
+	}
+
+	//技能学习
+	if msg.GetCmd() == myMsg.Cmd_Skill_learn {
+		p.inRoom.players[p.username].SkillLearn(msg.SkillLearn)
 	}
 	//TODO implement
 	return true
@@ -209,6 +210,9 @@ type Player struct {
 	Online       bool
 	lastMove     Vector2
 	levelManager *LevelManager
+	levelUp      int
+	Waiting      bool
+	skillLearns  []*myMsg.SkillLearn
 }
 
 var playerId IdManager
@@ -226,13 +230,15 @@ func NewPlayer(username string, pos Vector2) *Player {
 
 	p.levelManager = NewLevelManager()
 
-	p.BuffMaInit()
+	p.BuffMaInit(p)
 	p.bufManger.initOwner(p)
-	p.SkillMaInit()
+	p.SkillMaInit(p)
 	p.skillManager.Init(p)
 	p.GetSkillManager().AddSkill(1, 0)
 	p.SetAttackID(1)
 	p.AddTarget(SKILL_TARGET_USER)
+
+	//p.InvincibleOn()
 	return p
 }
 
@@ -247,7 +253,10 @@ func (this *Player) SendToNine() {
 		ch.AStatus = this.GetStatus()
 		ch.Username = this.username
 		ch.Hp = int32(this.GetHp())
-
+		ch.Index = &myMsg.LocationInfo{
+			X: this.GetPos().x,
+			Y: this.GetPos().y,
+		}
 		this.GetRoom().PlayerStatusUp[this.username] = ch
 
 	}
@@ -282,35 +291,166 @@ type PlayerMove struct {
 }
 
 func (this *Player) ComputeDamage(damage int) {
+	if this.isInvincible() {
+		return
+	}
 	n := (100.0 / float32(this.GetDef()+100))
 	t_damage := float32(damage) * n
 
 	this.AddHp(int(-t_damage))
 	if this.isDead() {
 		this.AddStatus(ASTATUS_DEAD)
+		this.Immobilize()
 		this.GetRoom().taskWithName[this.username].Dead = true
 	} else {
 		this.AddStatus(ASTATUS_INJURED)
 	}
 
-	this.GetRoom().mutex_PlayerStatus.Lock()
-	defer this.GetRoom().mutex_PlayerStatus.Unlock()
-	if val, ok := this.GetRoom().PlayerStatusUp[this.username]; ok {
-		val.AStatus = this.GetStatus()
-		val.Hp = int32(this.GetHp())
-	} else {
-		this.GetRoom().PlayerStatusUp[this.username] = &myMsg.CharInfo{
-			Username: this.username,
-			AStatus:  this.GetStatus(),
-			Hp:       int32(this.GetHp()),
+	//this.GetRoom().mutex_PlayerStatus.Lock()
+	//defer this.GetRoom().mutex_PlayerStatus.Unlock()
+	//if val, ok := this.GetRoom().PlayerStatusUp[this.username]; ok {
+	//	val.AStatus = this.GetStatus()
+	//	val.Hp = int32(this.GetHp())
+	//} else {
+	//	this.GetRoom().PlayerStatusUp[this.username] = &myMsg.CharInfo{
+	//		Username: this.username,
+	//		AStatus:  this.GetStatus(),
+	//		Hp:       int32(this.GetHp()),
+	//		Index: &myMsg.LocationInfo{
+	//			X: this.GetPos().x,
+	//			Y: this.GetPos().y,
+	//		},
+	//	}
+	//}
+	this.SendToNineNow()
+	this.RemoveStatus(ASTATUS_INJURED)
+
+}
+
+func (this *Player) Immobilize() {
+	this.immobilize = true
+	this.lastMove = Vector2{0, 0}
+}
+
+func (this *Player) SendToNineNow() {
+	ch := &myMsg.CharInfo{}
+	ch.AStatus = this.GetStatus()
+	ch.Username = this.username
+	ch.Hp = int32(this.GetHp())
+	ch.Index = &myMsg.LocationInfo{
+		X: this.GetPos().x,
+		Y: this.GetPos().y,
+	}
+	msg := &myMsg.MsgFromService{
+		FNO:   this.GetRoom().FNO,
+		Scene: NewMsgScene(),
+	}
+	msg.Scene.Chars = append(msg.Scene.Chars, ch)
+	by, _ := proto.Marshal(msg)
+	bytes := AddHeader(by)
+	for _, p := range this.GetRoom().taskWithName {
+		p.tcpTask.SendMsg(bytes)
+	}
+}
+
+func (this *Player) AddHp(hp int) {
+	if this.invincible && hp < 0 {
+		return
+	}
+	this.hp += hp
+	if this.hp < 0 {
+		this.hp = 0
+	}
+	this.SendToNine()
+}
+
+func (this *Player) SkillLearn(learn *myMsg.SkillLearn) {
+	flag := false
+	for _, s := range this.skillLearns {
+		if s.SkillID == learn.SkillID && s.SkillLevel == learn.SkillLevel {
+			flag = true
 		}
 	}
-	this.RemoveStatus(ASTATUS_INJURED)
-	this.Immobilize()
-	go func() {
-		time.Sleep(time.Millisecond * 300)
-		this.DisImmobilize()
+	if !flag {
+		return
+	}
+	if learn.SkillID == -1 {
+		this.AddHp(10)
+		this.skillLearns = nil
+		this.Waiting = false
+		return
+	}
+	this.GetSkillManager().AddSkill(learn.SkillID, learn.SkillLevel)
+	if learn.SkillID < 100 {
+		this.SetAttackID(learn.SkillID)
+	}
 
-	}()
+	this.skillLearns = nil
+	this.Waiting = false
+}
 
+func (this *Player) GetSkillLearnList() []*myMsg.SkillLearn {
+	s := make([]*myMsg.SkillLearn, 0)
+	if this.GetAttackID() == 1 {
+		a := myRand.Intn(len(GetAttack()))
+		b := myRand.Intn(len(GetAttack()) - 1)
+		if b >= a {
+			b++
+		}
+		s = append(s, &myMsg.SkillLearn{
+			SkillID:    GetAttack()[a],
+			SkillLevel: 0,
+		})
+		s = append(s, &myMsg.SkillLearn{
+			SkillID:    GetAttack()[b],
+			SkillLevel: 0,
+		})
+		s = append(s, &myMsg.SkillLearn{
+			SkillID:    -1,
+			SkillLevel: 0,
+		})
+		return s
+	}
+	//已经学习技能升级
+	list := this.GetSkillManager().GetSkillIDAndLevel()
+	newList := make([]SkillIdAndLevel, 0)
+	for _, skill := range list {
+		if skill.SkillId < 300 && this.GetSkillManager().GetSkillByID(skill.SkillId).GetBase().MaxLevel > skill.Level {
+			newList = append(newList, skill)
+		}
+	}
+	if len(newList) > 0 {
+		a := rand.Intn(len(newList))
+		s = append(s, &myMsg.SkillLearn{
+			SkillID:    newList[a].SkillId,
+			SkillLevel: newList[a].Level + 1,
+		})
+	}
+
+	list2 := GetPassivity()
+	newList2 := make([]int32, 0)
+	for _, id := range list2 {
+		if this.GetSkillManager().GetSkillByID(id) == nil || this.GetSkillManager().GetSkillByID(id).GetBase().MaxLevel > this.GetSkillManager().GetSkillByID(id).GetLevel() {
+			newList2 = append(newList2, id)
+		}
+	}
+	if len(newList2) > 0 {
+		a := rand.Intn(len(newList2))
+		var level int32
+		if this.GetSkillManager().GetSkillByID(newList2[a]) == nil {
+			level = 0
+		} else {
+			level = this.GetSkillManager().GetSkillByID(newList2[a]).GetLevel() + 1
+		}
+		s = append(s, &myMsg.SkillLearn{
+			SkillID:    newList2[a],
+			SkillLevel: level,
+		})
+	}
+
+	s = append(s, &myMsg.SkillLearn{
+		SkillID:    -1,
+		SkillLevel: 0,
+	})
+	return s
 }

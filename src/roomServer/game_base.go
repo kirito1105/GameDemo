@@ -1,24 +1,25 @@
 package roomServer
 
-import "github.com/sirupsen/logrus"
+import (
+	"github.com/sirupsen/logrus"
+	"reflect"
+)
 
 type Skiller interface {
 	GetStatusManager() *SkillStatusManager
-	BuffMaInit()
+	BuffMaInit(ObjBaseI)
 	GetSkillManager() *SkillManager
-	SkillMaInit()
-}
-
-type Sender interface {
-	SendToMe()
-	SendToNine()
-
-	SendFaceToNine(x float32, y float32)
+	SkillMaInit(ObjBaseI)
 }
 
 type ObjBaseI interface {
 	Skiller
-	Sender
+	SendToMe()
+	SendToNine()
+
+	SendFaceToNine(x float32, y float32)
+
+	SendToNineNow()
 
 	GetID() int32
 	SetID(id int32)
@@ -64,6 +65,7 @@ type ObjBaseI interface {
 	SetAtkBase(atk int)
 
 	GetDef() int
+	SetDef(int)
 
 	IsImmobilize() bool
 	Immobilize()
@@ -117,19 +119,19 @@ func (this *ObjBase) GetSkillManager() *SkillManager {
 	return this.skillManager
 }
 
-func (this *ObjBase) Init() {
-	this.BuffMaInit()
-	this.SkillMaInit()
+func (this *ObjBase) Init(a ObjBaseI) {
+	this.BuffMaInit(a)
+	this.SkillMaInit(a)
 }
 
-func (this *ObjBase) BuffMaInit() {
+func (this *ObjBase) BuffMaInit(a ObjBaseI) {
 	this.bufManger = NewSkillStatusManager()
-	this.bufManger.initOwner(this)
+	this.bufManger.initOwner(a)
 }
 
-func (this *ObjBase) SkillMaInit() {
+func (this *ObjBase) SkillMaInit(a ObjBaseI) {
 	this.skillManager = NewSkillManager()
-	this.skillManager.Init(this)
+	this.skillManager.Init(a)
 }
 
 func (this *ObjBase) GetID() int32 {
@@ -277,7 +279,8 @@ func (this *ObjBase) SendToMe() {
 	logrus.Error("[TCP]调用到了未被重写的函数 SendToMe")
 }
 func (this *ObjBase) SendToNine() {
-	logrus.Error("[TCP]调用到了未被重写的函数 SendToNine")
+	a := reflect.TypeOf(this)
+	logrus.Error("[TCP]调用到了未被重写的函数 SendToNine", a.Name())
 }
 
 func (this *ObjBase) IsImmobilize() bool {
@@ -321,4 +324,9 @@ func (this *ObjBase) AddAtkA(num int32) {
 	if this.atkA < 0 {
 		this.atkA = 0
 	}
+}
+
+func (this *ObjBase) SendToNineNow() {
+	a := reflect.TypeOf(this)
+	logrus.Error("[TCP]调用到了未被重写的函数 SendToNineNow", a.Name(), a.String())
 }

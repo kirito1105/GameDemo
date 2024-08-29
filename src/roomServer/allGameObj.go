@@ -21,7 +21,7 @@ type TreeObj struct {
 func NewTree() *TreeObj {
 	t := &TreeObj{}
 	t.target = SKILL_TARGET_TREE
-	t.BuffMaInit()
+	t.BuffMaInit(t)
 	return t
 }
 
@@ -32,7 +32,7 @@ type BushObj struct {
 func NewBush() *BushObj {
 	b := &BushObj{}
 	b.target = SKILL_TARGET_TREE
-	b.BuffMaInit()
+	b.BuffMaInit(b)
 	return b
 }
 
@@ -77,6 +77,21 @@ func (this *ObjectManager) NewObj(t ObjType) ObjBaseI {
 			r.SetID(this.AllID.getId())
 			r.SetObjType(t)
 		}
+		if t.subForm == myMsg.SubForm_PIG_02 {
+			r = NewPig()
+			r.SetID(this.AllID.getId())
+			r.SetObjType(t)
+			r.SetHp(60)
+			r.SetDef(100)
+		}
+		if t.subForm == myMsg.SubForm_PIG_03 {
+			r = NewPig()
+			r.SetID(this.AllID.getId())
+			r.SetObjType(t)
+			r.SetHp(100)
+			r.SetDef(50)
+			r.GetSkillManager().AddSkill(102, 0)
+		}
 
 	default:
 		logrus.Error("[地图]未知类型")
@@ -96,7 +111,7 @@ func (this *ObjectManager) TimeTick() {
 
 func (this *TreeObj) ComputeDamage(damage int) {
 
-	n := (100.0 / float32(this.GetDef()+100))
+	n := 100.0 / float32(this.GetDef()+100)
 	t_damage := float32(damage) * n
 
 	this.AddHp(int(-t_damage))
@@ -114,7 +129,14 @@ func (this *TreeObj) ComputeDamage(damage int) {
 				break
 			}
 		}
-		this.GetRoom().GetWorld().blocks[p.BlockX][p.BlockY].Objs = append(this.GetRoom().GetWorld().blocks[p.BlockX][p.BlockY].Objs[:i], this.GetRoom().GetWorld().blocks[p.BlockX][p.BlockY].Objs[i+1:]...)
+		if i > len(this.GetRoom().GetWorld().blocks[p.BlockX][p.BlockY].Objs)-1 {
+
+		} else if len(this.GetRoom().GetWorld().blocks[p.BlockX][p.BlockY].Objs) == 1 {
+			this.GetRoom().GetWorld().blocks[p.BlockX][p.BlockY].Objs = nil
+		} else {
+			this.GetRoom().GetWorld().blocks[p.BlockX][p.BlockY].Objs = append(this.GetRoom().GetWorld().blocks[p.BlockX][p.BlockY].Objs[:i], this.GetRoom().GetWorld().blocks[p.BlockX][p.BlockY].Objs[i+1:]...)
+		}
+
 		this.GetRoom().SendEXP(50)
 	} else {
 		treeinfo.Status = ASTATUS_INJURED
@@ -122,4 +144,38 @@ func (this *TreeObj) ComputeDamage(damage int) {
 
 	this.GetRoom().chan_tree <- treeinfo
 
+}
+
+func (this *TreeObj) SendToNine() {
+
+	treeinfo := &myMsg.TreeInfo{
+		Id: this.GetID(),
+	}
+	if this.isDead() {
+		treeinfo.Status = ASTATUS_DEAD
+		this.bufManger.Clear()
+		pos := this.GetPos()
+		p := pos.toPoint()
+		var i int
+		var obj ObjBaseI
+		for i, obj = range this.GetRoom().GetWorld().GetBlock(p.BlockX, p.BlockY).Objs {
+			if this.GetID() == obj.GetID() {
+				break
+			}
+		}
+		if i > len(this.GetRoom().GetWorld().blocks[p.BlockX][p.BlockY].Objs)-1 {
+
+		} else if len(this.GetRoom().GetWorld().blocks[p.BlockX][p.BlockY].Objs) == 1 {
+			this.GetRoom().GetWorld().blocks[p.BlockX][p.BlockY].Objs = nil
+		} else {
+			this.GetRoom().GetWorld().blocks[p.BlockX][p.BlockY].Objs = append(this.GetRoom().GetWorld().blocks[p.BlockX][p.BlockY].Objs[:i], this.GetRoom().GetWorld().blocks[p.BlockX][p.BlockY].Objs[i+1:]...)
+		}
+
+		this.GetRoom().SendEXP(50)
+		this.GetRoom().chan_tree <- treeinfo
+	}
+
+}
+func (this *TreeObj) SendToNineNow() {
+	this.SendToNine()
 }

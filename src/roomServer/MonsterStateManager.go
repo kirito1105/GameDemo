@@ -1,7 +1,6 @@
 package roomServer
 
 import (
-	"github.com/sirupsen/logrus"
 	"myGameDemo/myMsg"
 	"time"
 )
@@ -93,7 +92,7 @@ func NewMonsterAttack(owner ObjBaseI) *MonsterAttack {
 }
 func (this *MonsterAttack) OnEnter() {
 	this.owner.AddStatus(ASTATUS_ATTACK)
-	this.sec = 4
+	this.sec = 20
 }
 func (this *MonsterAttack) OnExecute() {
 	skill := this.owner.GetSkillManager().GetSkillByID(this.owner.GetAttackID())
@@ -101,7 +100,7 @@ func (this *MonsterAttack) OnExecute() {
 		this.transitionEvent(StateMonsterDefault)
 		return
 	}
-	if this.sec == 4 {
+	if this.sec == 20 {
 		if skill.IsCD() {
 			this.transitionEvent(StateMonsterDefault)
 			return
@@ -114,9 +113,11 @@ func (this *MonsterAttack) OnExecute() {
 		return
 	}
 	this.sec--
-	if this.sec == 0 {
+	if this.sec == 12 {
 		skill.SkillActionDamage(this.cmd, this.owner)
 		skill.SkillActionEnd(this.cmd, this.owner)
+
+	} else if this.sec == 0 {
 		this.transitionEvent(StateMonsterDefault)
 	}
 }
@@ -156,7 +157,6 @@ func (this *MonsterSearch) OnExit() {}
 
 type MonsterMove struct {
 	StateBase
-	lastMove Vector2
 }
 
 func NewMonsterMove(owner ObjBaseI) *MonsterMove {
@@ -167,7 +167,6 @@ func NewMonsterMove(owner ObjBaseI) *MonsterMove {
 }
 func (this *MonsterMove) OnEnter() {
 	this.owner.AddStatus(ASTATUS_MOVE)
-	this.lastMove = *new(Vector2)
 }
 
 func (this *MonsterMove) OnExecute() {
@@ -177,7 +176,8 @@ func (this *MonsterMove) OnExecute() {
 			return
 		}
 	}
-	if this.owner.isInvincible() {
+	if this.owner.IsImmobilize() {
+		this.transitionEvent(StateMonsterDefault)
 		return
 	}
 
@@ -185,19 +185,16 @@ func (this *MonsterMove) OnExecute() {
 	speed := this.owner.GetSpeed()
 	des := this.owner.(*Monster).des.GetPos()
 	v := des.Add(*pos.MultiplyNum(-1))
-	if v.magnitude() < 1 {
+	if v.magnitude() < 2 {
 		this.transitionEvent(StateMonsterAttack)
 		return
 	}
 
 	v = v.MultiplyNum(1 / v.magnitude())
 	v = v.MultiplyNum(speed)
-	new_pos := pos.Add(*v.MultiplyNum((float32(ft) / float32(time.Second))))
+	new_pos := pos.Add(*v.MultiplyNum(float32(ft) / float32(time.Second)))
 	this.owner.SetPos(*new_pos)
 
-	if v.Equal(&this.lastMove) {
-		return
-	}
 	//广播移动
 	msg := &myMsg.MonsterMove{
 		Id:      this.owner.GetID(),
@@ -239,8 +236,8 @@ type MonsterInjured struct {
 
 func (this *MonsterInjured) OnEnter() {
 	this.owner.AddStatus(ASTATUS_INJURED)
-	this.owner.SendToNine()
-	this.sec = 2
+	this.owner.SendToNineNow()
+	this.sec = 1
 }
 func (this *MonsterInjured) OnExecute() {
 	if this.sec < 0 {
@@ -272,7 +269,7 @@ func NewMonsterDead(owner ObjBaseI) *MonsterDead {
 }
 func (this *MonsterDead) OnEnter() {
 	this.owner.AddStatus(ASTATUS_DEAD)
-	this.owner.SendToNine()
+	this.owner.SendToNineNow()
 }
 func (this *MonsterDead) OnExecute() {
 	this.transitionEvent(StateMonsterDefault)
@@ -284,7 +281,9 @@ func (this *MonsterDead) OnExit() {
 type Monster struct {
 	ObjBase
 	StateMachine
-	des ObjBaseI
+	des  ObjBaseI
+	dead bool
+	exp  int
 }
 
 func NewPig() *Monster {
@@ -303,8 +302,10 @@ func NewPig() *Monster {
 	}
 	pig.currentState = pig.stateMap[StateMonsterDefault]
 
+	pig.exp = 100
+
 	//ObjBase 初始化
-	pig.Init()
+	pig.Init(pig)
 	pig.SetObjType(ObjType{
 		form:    myMsg.Form_MONSTER,
 		subForm: myMsg.SubForm_PIG,
@@ -323,6 +324,11 @@ func NewPig() *Monster {
 func (this *Monster) SendToNine() {
 	if this.isDead() {
 		this.AddStatus(ASTATUS_DEAD)
+		if !this.dead {
+			this.GetRoom().SendEXP(this.exp)
+			this.dead = true
+		}
+
 	}
 	msg := &myMsg.MonsterInfo{
 		Id: this.GetID(),
@@ -330,7 +336,7 @@ func (this *Monster) SendToNine() {
 			X: this.GetPos().x,
 			Y: this.GetPos().y,
 		},
-		Subform: myMsg.SubForm_PIG,
+		Subform: this.GetObjType().subForm,
 		AStatus: this.GetStatus(),
 	}
 	this.GetRoom().chan_monster <- msg
@@ -344,7 +350,6 @@ func (this *Monster) ComputeDamage(damage int) {
 	t_damage := float32(damage) * n
 
 	this.AddHp(int(-t_damage))
-	logrus.Debug("[Monster]被命中")
 	if this.isDead() {
 		this.TransitionState(StateMonsterDead)
 	} else {
@@ -354,4 +359,38 @@ func (this *Monster) ComputeDamage(damage int) {
 
 	}
 
+}
+
+func (this *Monster) SendToNineNow() {
+	//if this.isDead() {
+	//	this.AddStatus(ASTATUS_DEAD)
+	//}
+	//mon := &myMsg.MonsterInfo{
+	//	Id: this.GetID(),
+	//	Index: &myMsg.LocationInfo{
+	//		X: this.GetPos().x,
+	//		Y: this.GetPos().y,
+	//	},
+	//	Subform: myMsg.SubForm_PIG,
+	//	AStatus: this.GetStatus(),
+	//}
+	//msg := &myMsg.MsgFromService{
+	//	FNO:   this.GetRoom().FNO,
+	//	Scene: &myMsg.MsgScene{},
+	//}
+	//msg.Scene.Monsters = append(msg.Scene.Monsters, mon)
+	//by, _ := proto.Marshal(msg)
+	//bytes := AddHeader(by)
+	//for _, p := range this.GetRoom().taskWithName {
+	//	//pos := this.GetRoom().players[p.username].GetPos()
+	//	//if pos.CanSee(this.GetPos()) {
+	//	//
+	//	//}
+	//	p.tcpTask.SendMsg(bytes)
+	//}
+	//if this.isDead() {
+	//	delete(this.GetRoom().monsters, this.GetID())
+	//	this.GetStatusManager().Clear()
+	//}
+	this.SendToNine()
 }
