@@ -115,6 +115,11 @@ func (this *TreeObj) ComputeDamage(damage int) {
 	t_damage := float32(damage) * n
 
 	this.AddHp(int(-t_damage))
+
+}
+
+func (this *TreeObj) AddHp(damage int) {
+	this.ObjBase.AddHp(damage)
 	treeinfo := &myMsg.TreeInfo{
 		Id: this.GetID(),
 	}
@@ -138,12 +143,14 @@ func (this *TreeObj) ComputeDamage(damage int) {
 		}
 
 		this.GetRoom().SendEXP(50)
+		this.GetRoom().bus.Publish(&Event{
+			typename: Tree_DIE,
+		})
 	} else {
 		treeinfo.Status = ASTATUS_INJURED
 	}
 
 	this.GetRoom().chan_tree <- treeinfo
-
 }
 
 func (this *TreeObj) SendToNine() {
@@ -170,8 +177,6 @@ func (this *TreeObj) SendToNine() {
 		} else {
 			this.GetRoom().GetWorld().blocks[p.BlockX][p.BlockY].Objs = append(this.GetRoom().GetWorld().blocks[p.BlockX][p.BlockY].Objs[:i], this.GetRoom().GetWorld().blocks[p.BlockX][p.BlockY].Objs[i+1:]...)
 		}
-
-		this.GetRoom().SendEXP(50)
 		this.GetRoom().chan_tree <- treeinfo
 	}
 

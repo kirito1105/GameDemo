@@ -47,11 +47,7 @@ func (p *PlayerTask) ParseMsg(data []byte) bool {
 		}
 
 		scene := p.inRoom.GetInitInfo(p.username)
-		m := myMsg.MsgFromService{
-			FNO:   p.inRoom.FNO,
-			Scene: scene,
-		}
-		bytes, _ := proto.Marshal(&m)
+		bytes, _ := proto.Marshal(scene)
 		p.tcpTask.SendMsg(AddHeader(bytes))
 	}
 
@@ -138,7 +134,7 @@ func (p *PlayerTask) ParseMsg(data []byte) bool {
 			skillID: msg.SkillRelease.SkillID,
 			step:    SKILL_START,
 		}
-		go p.inRoom.SkillRelease(sr)
+		p.inRoom.chan_skill <- sr
 	}
 	//伤害帧
 	if msg.GetCmd() == myMsg.Cmd_Damage {
@@ -157,7 +153,7 @@ func (p *PlayerTask) ParseMsg(data []byte) bool {
 			skillID: msg.SkillRelease.SkillID,
 			step:    SKILL_DAMAGE,
 		}
-		go p.inRoom.SkillRelease(sr)
+		p.inRoom.chan_skill <- sr
 
 	}
 	//动画结束
@@ -168,7 +164,7 @@ func (p *PlayerTask) ParseMsg(data []byte) bool {
 			skillID:  msg.SkillRelease.SkillID,
 		}
 
-		go p.inRoom.SkillRelease(sr)
+		p.inRoom.chan_skill <- sr
 
 	}
 
@@ -361,7 +357,9 @@ func (this *Player) AddHp(hp int) {
 	if this.hp < 0 {
 		this.hp = 0
 	}
-	this.SendToNine()
+	if hp > 0 {
+		this.SendToNine()
+	}
 }
 
 func (this *Player) SkillLearn(learn *myMsg.SkillLearn) {

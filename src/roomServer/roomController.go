@@ -64,7 +64,9 @@ func DeleteSliceR(s []*Room, roomid string) []*Room {
 func (rc *RoomController) RemoveRoom(id string) {
 	rc.mutex.Lock()
 	defer rc.mutex.Unlock()
-	delete(rc.RoomwithId, id)
+	if _, ok := rc.RoomwithId[id]; ok {
+		delete(rc.RoomwithId, id)
+	}
 }
 
 func (rc *RoomController) GetRoom(id string) *Room {

@@ -310,10 +310,10 @@ func NewPig() *Monster {
 		form:    myMsg.Form_MONSTER,
 		subForm: myMsg.SubForm_PIG,
 	})
-	pig.SetHp(100)
-	pig.SetAtkBase(10)
+	pig.SetHp(150)
+	pig.SetAtkBase(20)
 	pig.SetSpeedBase(4.2)
-	pig.SetMaxHp(100)
+	pig.SetMaxHp(150)
 	pig.GetStatus()
 
 	pig.SetAttackID(101)
@@ -326,6 +326,10 @@ func (this *Monster) SendToNine() {
 		this.AddStatus(ASTATUS_DEAD)
 		if !this.dead {
 			this.GetRoom().SendEXP(this.exp)
+			this.GetRoom().bus.Publish(&Event{
+				typename: MONSTER_DIE,
+				data:     this.GetObjType(),
+			})
 			this.dead = true
 		}
 

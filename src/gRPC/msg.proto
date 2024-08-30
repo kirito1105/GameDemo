@@ -63,7 +63,31 @@ message MsgFromService{
   int64 FNO = 1;
   MsgScene scene = 2;
   bool ping = 3;
-  repeated SkillLearn skillList= 4;
+  repeated SkillLearn skillList = 4;
+  TaskInfo taskInfo = 5;
+  GameOverInfo over = 6;
+  TaskTargetInfo target = 7;
+}
+
+message GameOverInfo{
+  bool Victory = 1;
+}
+
+message TaskInfo{
+  int64  TaskNum = 1;
+  int64  TreeNum = 2;
+  int64  PigNum = 3;
+  int64  Pig02Num = 4;
+  int64  Pig03Num = 5;
+}
+
+message TaskTargetInfo{
+  int64  TaskNum = 1;
+  int64   Monster = 2;
+  int64  TreeNum = 3;
+  int64  PigNum = 4;
+  int64  Pig02Num = 5;
+  int64  Pig03Num = 6;
 }
 
 message MsgAuthentication{
@@ -126,7 +150,7 @@ message CharInfo{
   LocationInfo face = 3;
   bool isUser = 4;
   int32 AStatus = 5;
-  int32 Hp =6;
+  int32 Hp = 6;
 }
 
 

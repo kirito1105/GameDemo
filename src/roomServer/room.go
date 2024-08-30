@@ -28,6 +28,9 @@ type Room struct {
 	world0       *World
 	closeFlag    bool
 
+	bus     *EventBus
+	gameDes *GameDataManager
+	isclose bool
 	//活跃检测
 	inactive *Set
 	pinged   *Set
@@ -49,6 +52,10 @@ type Room struct {
 	chan_delete  chan *myMsg.DeleteInfo
 	chan_monster chan *myMsg.MonsterInfo
 	chan_monMove chan *myMsg.MonsterMove
+	chan_gamover chan *myMsg.GameOverInfo
+	data_Task    *myMsg.TaskInfo
+	mutex_Data   sync.Mutex
+	chan_skill   chan *SkillMsg
 }
 
 func NewRoom() *Room {
@@ -58,6 +65,9 @@ func NewRoom() *Room {
 		players:      make(map[string]*Player),
 		monsters:     make(map[int32]*Monster),
 		world0:       nil,
+
+		bus:     &EventBus{},
+		gameDes: NewGameDataManager(),
 
 		inactive: NewSet(),
 		pinged:   NewSet(),
@@ -72,12 +82,23 @@ func NewRoom() *Room {
 		chan_delete:  make(chan *myMsg.DeleteInfo, 10),
 		chan_monster: make(chan *myMsg.MonsterInfo, 50),
 		chan_monMove: make(chan *myMsg.MonsterMove, 100),
+		chan_gamover: make(chan *myMsg.GameOverInfo, 10),
+		chan_skill:   make(chan *SkillMsg, 10),
 	}
 	go func() {
 		a := NewWorld(t)
 		t.world0 = a
 	}()
+	t.gameDes.InitMe(t)
+	t.gameDes.Subscribe(t.bus)
 	return t
+}
+
+func (this *Room) GameOver(flag bool) {
+	this.chan_gamover <- &myMsg.GameOverInfo{
+		Victory: true,
+	}
+	GetRoomController().RemoveRoom(this.RoomID)
 }
 
 func (this *Room) PlayerIn(p *PlayerTask) {
@@ -178,7 +199,7 @@ func (this *Room) GetMsgBlockWithIndex(x int, y int) *myMsg.Block { //x,y为Bloc
 	return &block
 }
 
-func (this *Room) GetInitInfo(username string) *myMsg.MsgScene {
+func (this *Room) GetInitInfo(username string) *myMsg.MsgFromService {
 	for this.world0 == nil {
 	}
 	scene := &myMsg.MsgScene{
@@ -212,7 +233,12 @@ func (this *Room) GetInitInfo(username string) *myMsg.MsgScene {
 			scene.Blocks = append(scene.Blocks, this.GetMsgBlockWithIndex(i, j))
 		}
 	}
-	return scene
+	m := &myMsg.MsgFromService{
+		FNO:    this.FNO,
+		Scene:  scene,
+		Target: this.gameDes.GetInitInfo(),
+	}
+	return m
 }
 
 func (this *Room) GetTCPAddr() net.Addr {
@@ -259,41 +285,16 @@ func (this *Room) Start() {
 	//}()
 
 	go func() {
+		tickerActive := time.Tick(time.Millisecond * 1500)
 		statusTicker := time.Tick(time.Second)
 		ticker := time.Tick(ft)
+	MAIN_LOOP:
 		for {
 			select {
-			case <-ticker:
-				//t := time.Now().UnixMicro()
-				this.FNO = this.FNO + 1
-				this.SkillLearnLoop()
-				this.MonsterLoop()
-				this.MoveLoop()
-				this.MoveUpdate()
-				this.Update()
-				if this.closeFlag {
-					return
-				}
-			//fmt.Println("一帧消耗了", time.Now().UnixMicro()-t)
-			case <-statusTicker:
-				for _, p := range this.players {
-					if p.Online {
-						p.bufManger.timeTick()
-					}
-				}
-				for _, m := range this.monsters {
-					m.bufManger.timeTick()
-				}
-				this.world0.ObjManager.TimeTick()
-			}
-		}
-	}()
-	//活跃检测
-	go func() {
-		ticker := time.Tick(time.Millisecond * 1500)
-		for {
-			select {
-			case <-ticker:
+			case sk := <-this.chan_skill:
+				this.SkillRelease(sk)
+
+			case <-tickerActive:
 				if this.closeFlag {
 					return
 				}
@@ -326,9 +327,39 @@ func (this *Room) Start() {
 					}
 				}
 
+			case <-ticker:
+				//t := time.Now().UnixMicro()
+				this.FNO = this.FNO + 1
+				this.SkillLearnLoop()
+				this.MonsterLoop()
+				this.MoveLoop()
+				this.MoveUpdate()
+				this.Update()
+				if this.closeFlag {
+					return
+				}
+				if this.isclose {
+					break MAIN_LOOP
+				}
+			//fmt.Println("一帧消耗了", time.Now().UnixMicro()-t)
+			case <-statusTicker:
+				for _, p := range this.players {
+					if p.Online {
+						p.bufManger.timeTick()
+					}
+				}
+				for _, m := range this.monsters {
+					m.bufManger.timeTick()
+				}
+				this.world0.ObjManager.TimeTick()
 			}
+
 		}
+
+		time.Sleep(5 * time.Second)
+		this.closeFlag = true
 	}()
+
 }
 
 func (this *Room) SkillLearnLoop() {
@@ -365,7 +396,7 @@ func (this *Room) SkillLearnLoop() {
 func (this *Room) MonsterLoop() {
 	//生成怪物
 
-	if this.FNO > 500 && len(this.monsters) < len(this.taskWithName) {
+	if this.FNO > 500 && len(this.monsters) < len(this.taskWithName)*(int(this.FNO)/2000+1) {
 		for _, p := range this.players {
 			if !p.Online {
 				continue
@@ -378,6 +409,10 @@ func (this *Room) MonsterLoop() {
 					pig = this.world0.ObjManager.NewObj(ObjType{form: myMsg.Form_MONSTER, subForm: myMsg.SubForm_PIG})
 				}
 				pig.SetRoom(this)
+				pig.SetHp(100 + p.levelManager.level + int(this.FNO)/100)
+				if this.FNO < 1000 {
+					pig.SetHp(20)
+				}
 				v := p.GetPos()
 				randv := Vector2{
 					x: float32(myRand.Intn(200)) / 10,
@@ -613,6 +648,24 @@ CHAN_MonsterMove:
 			break CHAN_MonsterMove
 		}
 	}
+
+	//Gameover
+
+	select {
+	case t := <-this.chan_gamover:
+		msg.Over = t
+		changed = true
+		this.isclose = true
+	default:
+	}
+	//Task
+	this.mutex_Data.Lock()
+	if this.data_Task != nil {
+		msg.TaskInfo = this.data_Task
+		this.data_Task = nil
+		changed = true
+	}
+	this.mutex_Data.Unlock()
 
 	if !changed {
 		return
